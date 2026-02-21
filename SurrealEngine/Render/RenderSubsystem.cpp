@@ -6,6 +6,7 @@
 #include "UObject/USubsystem.h"
 #include "VM/ScriptCall.h"
 #include "Engine.h"
+#include "RmlUI/RmlUIManager.h"
 
 RenderSubsystem::RenderSubsystem(RenderDevice* renderdevice) : Device(renderdevice)
 {
@@ -48,6 +49,12 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 	if (engine->dxRootWindow)
 	{
 		DrawRootWindow();
+	}
+
+	if (engine->rmlui && engine->rmlui->IsInitialized())
+	{
+		Device->SetSceneNode(&Canvas.Frame);
+		engine->rmlui->Render(Device, &Canvas.Frame);
 	}
 
 	PostRender();

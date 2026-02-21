@@ -25,8 +25,10 @@
 #include "VM/Frame.h"
 #include "VM/ScriptCall.h"
 #include "Video/VideoPlayer.h"
+#include "RmlUI/RmlUIManager.h"
 #include <chrono>
 #include <set>
+#include <filesystem>
 
 Engine* engine = nullptr;
 
@@ -64,6 +66,9 @@ Engine::~Engine()
 	if (audiodev)
 		audiodev->ShutdownDevice();
 
+	if (rmlui) rmlui->Shutdown();
+	rmlui.reset();
+
 	Logger::Get()->SaveLogAsPlaintext((Directory::localAppData() / "SurrealEngine/SE-Log-LastRun.txt").string());
 
 	engine = nullptr;
@@ -82,6 +87,11 @@ void Engine::Run()
 
 	audiodev->InitDevice();
 	render = std::make_unique<RenderSubsystem>(window->GetRenderDevice());
+
+	rmlui = std::make_unique<RmlUIManager>();
+	rmlui->Initialize(
+		(std::filesystem::path(LaunchInfo.gameRootFolder) / "UI").string(),
+		window->GetPixelWidth(), window->GetPixelHeight());
 
 	if (engine->LaunchInfo.engineVersion > 219 && !client->StartupFullscreen)
 		viewport->bWindowsMouseAvailable() = true;
@@ -142,6 +152,8 @@ void Engine::Run()
 		LevelInfo->Millisecond() = 0; // No timedesc equivalent for LevelInfo->Millisecond()
 
 		UpdateInput(realTimeElapsed);
+
+		if (rmlui) rmlui->Update();
 
 		SetPause(!LevelInfo->Pauser().empty());
 

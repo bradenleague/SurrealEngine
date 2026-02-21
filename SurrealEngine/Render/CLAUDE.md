@@ -11,6 +11,7 @@ RenderSubsystem::DrawGame(float levelTimeElapsed)
   ├─ DrawScene()             — 3D BSP world + actors
   ├─ RenderOverlays()        — CallEvent(actor, RenderOverlays, {Canvas})
   ├─ DrawRootWindow()        — UWindow tree (if dxRootWindow exists)
+  ├─ RmlUI Render            — RmlUi overlay (if initialized, via DrawUITriangles)
   └─ PostRender()            — CallEvent(actor/console, PostRender, {Canvas})
 ```
 
@@ -39,10 +40,13 @@ Scripts work in logical coordinates. RenderSubsystem multiplies by `uiscale` bef
 
 ```cpp
 Device->DrawTile(Frame, Info, X, Y, XL, YL, U, V, UL, VL, Z, Color, Fog, PolyFlags);
+Device->DrawUITriangles(Frame, Info, Vertices, NumVertices, Indices, NumIndices);  // RmlUi
 Device->Draw2DLine(Frame, Color, LineFlags, P1, P2);
 Device->Draw2DPoint(Frame, Color, LineFlags, X1, Y1, X2, Y2, Z);
 Device->ClearZ();
 ```
+
+`DrawUITriangles` is a virtual with default no-op. Vulkan implementation uses `ScreenToView()` helper (shared with `DrawTile`) and `PF_Highlighted` pipeline for alpha blending.
 
 Implementations: `RenderDevice/Vulkan/VulkanRenderDevice` and `RenderDevice/D3D11/D3D11RenderDevice`.
 

@@ -6,6 +6,11 @@ add_subdirectory(Thirdparty/openmpt)
 add_subdirectory(Thirdparty/ZVulkan)
 add_subdirectory(Thirdparty/ZWidget)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
+set(RMLUI_LUA_BINDINGS OFF CACHE BOOL "" FORCE)
+add_subdirectory(Thirdparty/RmlUi)
+
 if (WIN32)
 	add_subdirectory(Thirdparty/openal-soft)
 endif()
@@ -421,6 +426,14 @@ set(SURREALCOMMON_SOURCES
 	SurrealEngine/UI/Launcher/VideoSettingsPage.h
 	SurrealEngine/UI/Launcher/GameFoldersPage.cpp
 	SurrealEngine/UI/Launcher/GameFoldersPage.h
+	SurrealEngine/RmlUI/RmlUISystemInterface.cpp
+	SurrealEngine/RmlUI/RmlUISystemInterface.h
+	SurrealEngine/RmlUI/RmlUIFileInterface.cpp
+	SurrealEngine/RmlUI/RmlUIFileInterface.h
+	SurrealEngine/RmlUI/RmlUIRenderInterface.cpp
+	SurrealEngine/RmlUI/RmlUIRenderInterface.h
+	SurrealEngine/RmlUI/RmlUIManager.cpp
+	SurrealEngine/RmlUI/RmlUIManager.h
 )
 
 set(SURREALCOMMON_WIN32_SOURCES
@@ -479,6 +492,7 @@ set(SURREALCOMMON_LIBS
 	zwidget
 	SurrealVideo
 	openmpt
+	rmlui_core
 )
 
 set(SURREALCOMMON_WIN32_LIBS
@@ -574,6 +588,7 @@ source_group("SurrealEngine\\Utils" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_D
 source_group("SurrealEngine\\GC" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/GC/.+")
 source_group("SurrealEngine\\VM" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/VM/.+")
 source_group("SurrealEngine\\Video" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/Video/.+")
+source_group("SurrealEngine\\RmlUI" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealEngine/RmlUI/.+")
 
 source_group("SurrealVideo" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealVideo/.+")
 source_group("SurrealVideo\\libavcodec" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/SurrealVideo/libavcodec/.+")
@@ -590,7 +605,7 @@ source_group("Thirdparty\\dumb\\include" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOU
 source_group("Thirdparty\\dumb\\include\\internal" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/dumb/include/internal/.+")
 source_group("Thirdparty\\miniz" REGULAR_EXPRESSION "${CMAKE_CURRENT_SOURCE_DIR}/Thirdparty/miniz/.+")
 
-include_directories(SurrealEngine Thirdparty Thirdparty/ZVulkan/include Thirdparty/ZWidget/include Thirdparty/openmpt Thirdparty/openal-soft/include Thirdparty/miniz)
+include_directories(SurrealEngine Thirdparty Thirdparty/ZVulkan/include Thirdparty/ZWidget/include Thirdparty/openmpt Thirdparty/openal-soft/include Thirdparty/miniz Thirdparty/RmlUi/Include)
 
 if(NOT APPLE AND SDL2_FOUND)
 	include_directories(SurrealEngine ${SDL2_INCLUDE_DIRS})
@@ -663,6 +678,10 @@ if(MSVC)
 	set_target_properties(SurrealEditor PROPERTIES LINK_FLAGS_RELWITHDEBINFO /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo/SurrealEditor-stripped.pdb)
 	set_target_properties(SurrealDebugger PROPERTIES LINK_FLAGS_RELWITHDEBINFO /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo/SurrealDebugger-stripped.pdb)
 endif()
+
+add_executable(TestRmlUI Tests/TestRmlUI.cpp)
+target_link_libraries(TestRmlUI SurrealCommon ${SURREALCOMMON_LIBS})
+set_target_properties(TestRmlUI PROPERTIES CXX_STANDARD 20)
 
 install(TARGETS SurrealEngine RUNTIME DESTINATION bin BUNDLE DESTINATION app)
 install(TARGETS SurrealEditor RUNTIME DESTINATION bin BUNDLE DESTINATION app)

@@ -42,6 +42,8 @@ public:
 
 	void SetHitLocation();
 
+	void DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, const UIVertex* Vertices, int NumVertices, const uint32_t* Indices, int NumIndices) override;
+
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(FTextureInfo& Info, int U, int V, int UL, int VL) override;
 
@@ -143,6 +145,7 @@ private:
 	void DrawBatch(VulkanCommandBuffer* cmdbuffer);
 	void SubmitAndWait(bool present, int presentWidth, int presentHeight, bool presentFullscreen);
 
+	vec3 ScreenToView(float x, float y, float z);
 	vec4 ApplyInverseGamma(vec4 color);
 
 	struct

@@ -612,10 +612,15 @@ void VulkanRenderDevice::DrawTile(FSceneNode* Frame, FTextureInfo& Info, float X
 		uint32_t* iptr = alloc.iptr;
 		uint32_t vpos = alloc.vpos;
 
-		vptr[0] = { 0, vec3(RFX2 * Z * (X - Frame->FX2),      RFY2 * Z * (Y - Frame->FY2),      Z), vec2(u0, v0), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
-		vptr[1] = { 0, vec3(RFX2 * Z * (X + XL - Frame->FX2), RFY2 * Z * (Y - Frame->FY2),      Z), vec2(u1, v0), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
-		vptr[2] = { 0, vec3(RFX2 * Z * (X + XL - Frame->FX2), RFY2 * Z * (Y + YL - Frame->FY2), Z), vec2(u1, v1), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
-		vptr[3] = { 0, vec3(RFX2 * Z * (X - Frame->FX2),      RFY2 * Z * (Y + YL - Frame->FY2), Z), vec2(u0, v1), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
+		vec3 p0 = ScreenToView(X, Y, Z);
+		vec3 p1 = ScreenToView(X + XL, Y, Z);
+		vec3 p2 = ScreenToView(X + XL, Y + YL, Z);
+		vec3 p3 = ScreenToView(X, Y + YL, Z);
+
+		vptr[0] = { 0, p0, vec2(u0, v0), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
+		vptr[1] = { 0, p1, vec2(u1, v0), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
+		vptr[2] = { 0, p2, vec2(u1, v1), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
+		vptr[3] = { 0, p3, vec2(u0, v1), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec2(0.0f, 0.0f), vec4(r, g, b, a), textureBinds };
 
 		iptr[0] = vpos;
 		iptr[1] = vpos + 1;
@@ -628,6 +633,41 @@ void VulkanRenderDevice::DrawTile(FSceneNode* Frame, FTextureInfo& Info, float X
 	}
 
 	Stats.Tiles++;
+}
+
+vec3 VulkanRenderDevice::ScreenToView(float x, float y, float z)
+{
+	return vec3(RFX2 * z * (x - CurrentFrame->FX2), RFY2 * z * (y - CurrentFrame->FY2), z);
+}
+
+void VulkanRenderDevice::DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, const UIVertex* Vertices, int NumVertices, const uint32_t* Indices, int NumIndices)
+{
+	SetPipeline(RenderPasses->GetPipeline(PF_Highlighted));
+
+	CachedTexture* tex = Info ? Textures->GetTexture(Info, false) : nullptr;
+	ivec4 textureBinds = GetTextureIndexes(PF_Highlighted, tex, true);
+
+	auto alloc = ReserveVertices(NumVertices, NumIndices);
+	if (alloc.vptr)
+	{
+		SceneVertex* vptr = alloc.vptr;
+		uint32_t* iptr = alloc.iptr;
+		uint32_t vpos = alloc.vpos;
+
+		float Z = 1.0f;
+		for (int i = 0; i < NumVertices; i++)
+		{
+			vec3 pos = ScreenToView(Vertices[i].Position.x, Vertices[i].Position.y, Z);
+			vptr[i] = { 0, pos, vec2(Vertices[i].UV.x, Vertices[i].UV.y), vec2(0.0f), vec2(0.0f), vec2(0.0f), Vertices[i].Color, textureBinds };
+		}
+
+		for (int i = 0; i < NumIndices; i++)
+		{
+			iptr[i] = vpos + Indices[i];
+		}
+
+		UseVertices(NumVertices, NumIndices);
+	}
 }
 
 vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)

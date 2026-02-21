@@ -46,6 +46,7 @@ class BspNode;
 class LightMapIndex;
 class FrustumPlanes;
 class AudioSubsystem;
+class RmlUIManager;
 class Rotator;
 class ExpressionValue;
 class UnrealURL;
@@ -161,6 +162,7 @@ public:
 	std::unique_ptr<PackageManager> packages;
 	std::unique_ptr<GameWindow> window; // TODO: Move into UViewport
 	std::unique_ptr<RenderSubsystem> render;
+	std::unique_ptr<RmlUIManager> rmlui;
 
 	int MouseMoveX = 0;
 	int MouseMoveY = 0;

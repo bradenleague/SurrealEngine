@@ -24,13 +24,16 @@ Produces three executables in `build/`: `SurrealEngine`, `SurrealEditor`, `Surre
 
 A `SurrealEngine.pk3` resource file is copied alongside the game executable post-build.
 
-There is no test suite. CI builds on Windows (MSVC), Linux (GCC 12, Clang 15) via GitHub Actions.
+CI builds on Windows (MSVC), Linux (GCC 12, Clang 15) via GitHub Actions. A lightweight test executable `TestRmlUI` validates the RmlUI subsystem (`./build/TestRmlUI`).
 
 ## Running
 
 ```bash
-# Launch with game folder
-./SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]
+# Launch with game folder (from repo root)
+./build/SurrealEngine [--url=<mapname>] [--engineversion=X] [Path to game folder]
+
+# Unreal Gold (installed locally)
+./build/SurrealEngine ~/dev/games/UnrealGold
 
 # If placed in a game's System/ folder, auto-detects the game
 ```
@@ -45,6 +48,7 @@ Game identification works by SHA1-hashing the game executable against `UE1GameDa
 - **SurrealEditor** — map editor executable
 - **SurrealDebugger** — UnrealScript debugger executable
 - **SurrealVideo** — shared library for video codecs (Indeo5/ADPCM from FFmpeg)
+- **TestRmlUI** — lightweight test executable for RmlUI subsystem (`Tests/TestRmlUI.cpp`)
 
 ### Core Subsystems (under `SurrealEngine/`)
 
@@ -70,11 +74,14 @@ Game identification works by SHA1-hashing the game executable against `UE1GameDa
 
 - **UI** (`UI/`) — Built on ZWidget. `Launcher/` for game selection, `Editor/` for map editor viewports, `ErrorWindow/` for crash display.
 
+- **RmlUI** (`RmlUI/`) — HTML/CSS UI layer using RmlUi library. Conditionally initializes when a game provides a `UI/` folder. Manager + three interfaces (System, File, Render). Renders via `DrawUITriangles()` on `RenderDevice`. See `SurrealEngine/RmlUI/CLAUDE.md` for details.
+
 ### Third-Party Libraries (under `Thirdparty/`)
 - **ZVulkan** — Vulkan rendering abstraction
 - **ZWidget** — Custom UI toolkit (Wayland/X11/SDL2 backends)
 - **openmpt** — Tracker music playback
 - **openal-soft** — OpenAL (bundled for Windows only; system lib on Linux)
+- **RmlUi** — HTML/CSS UI library (static, core only; freetype2 required)
 - Header-only audio codecs, miniz (compression), MurmurHash3, TinySHA1
 
 ### Key Patterns
@@ -89,7 +96,7 @@ Game identification works by SHA1-hashing the game executable against `UE1GameDa
 
 - **Always verify compilation** after refactoring or multi-file changes: `cd build && make -j$(nproc)`
 - The PreToolUse hook runs a full build before any `git commit` — if it fails, the commit is blocked. Fix the build first.
-- There is no test suite or formatter. Compilation is the primary gate.
+- No general test suite or formatter. Compilation is the primary gate. `TestRmlUI` covers the RmlUI subsystem.
 - Match existing code style: tabs for indentation, Allman-ish braces (opening brace on own line for functions).
 
 ## Code Conventions
@@ -116,6 +123,7 @@ Nested `CLAUDE.md` files provide deeper context for agents working in specific a
 - `SurrealEngine/Render/CLAUDE.md` — rendering pipeline, Canvas, RenderDevice
 - `SurrealEngine/VM/CLAUDE.md` — bytecode interpreter, CallEvent, ExpressionValue
 - `SurrealEngine/UObject/CLAUDE.md` — object model, UWindow hierarchy, UCanvas properties
+- `SurrealEngine/RmlUI/CLAUDE.md` — RmlUi integration, lifecycle, interfaces, phase roadmap
 
 ## Supported Games
 

@@ -39,6 +39,13 @@ struct GouraudVertex
 	vec4 Fog;
 };
 
+struct UIVertex
+{
+	vec2 Position;  // screen-space pixels
+	vec4 Color;     // RGBA [0,1], premultiplied alpha
+	vec2 UV;        // texture coordinates [0,1]
+};
+
 struct FSurfaceFacet
 {
 	Coords MapCoords;
@@ -121,6 +128,7 @@ public:
 	virtual void PrecacheTexture(FTextureInfo& Info, uint32_t PolyFlags) = 0;
 	virtual bool SupportsTextureFormat(TextureFormat Format) = 0;
 	virtual void UpdateTextureRect(FTextureInfo& Info, int U, int V, int UL, int VL) = 0;
+	virtual void DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, const UIVertex* Vertices, int NumVertices, const uint32_t* Indices, int NumIndices) {}
 
 	bool ParseCommand(std::string* cmd, const std::string& keyword) { return false; }
 
