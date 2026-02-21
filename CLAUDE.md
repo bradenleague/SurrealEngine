@@ -115,6 +115,10 @@ Game identification works by SHA1-hashing the game executable against `UE1GameDa
 - This is a fork of `dpjudas/SurrealEngine`. Do not push without explicit approval.
 - Commit messages: concise imperative style matching existing log (e.g., "WarpZoneInfo: Initial implementations of (Un)Warp()")
 
+## Skills
+
+- **`/surreal-ui`** — Use when editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI drawing code. Covers critical RCSS differences from CSS and SurrealEngine integration patterns.
+
 ## Subsystem Documentation
 
 Nested `CLAUDE.md` files provide deeper context for agents working in specific areas:

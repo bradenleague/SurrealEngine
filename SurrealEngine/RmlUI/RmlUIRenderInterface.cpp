@@ -129,11 +129,35 @@ void RmlUIRenderInterface::ReleaseTexture(Rml::TextureHandle texture)
 void RmlUIRenderInterface::EnableScissorRegion(bool enable)
 {
 	scissorEnabled = enable;
+	if (currentDevice && currentFrame)
+	{
+		if (enable)
+			currentDevice->SetUIScissorRegion(currentFrame, true,
+				scissorRegion.Left(), scissorRegion.Top(),
+				scissorRegion.Width(), scissorRegion.Height());
+		else
+			currentDevice->SetUIScissorRegion(currentFrame, false, 0, 0, 0, 0);
+	}
 }
 
 void RmlUIRenderInterface::SetScissorRegion(Rml::Rectanglei region)
 {
 	scissorRegion = region;
+	if (scissorEnabled && currentDevice && currentFrame)
+	{
+		currentDevice->SetUIScissorRegion(currentFrame, true,
+			region.Left(), region.Top(),
+			region.Width(), region.Height());
+	}
+}
+
+void RmlUIRenderInterface::ResetScissorState()
+{
+	if (scissorEnabled && currentDevice && currentFrame)
+	{
+		currentDevice->SetUIScissorRegion(currentFrame, false, 0, 0, 0, 0);
+		scissorEnabled = false;
+	}
 }
 
 Rml::TextureHandle RmlUIRenderInterface::GetWhiteTexture()

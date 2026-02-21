@@ -48,9 +48,12 @@ RmlUI renders after the UWindow tree but before PostRender, so it overlays on to
 └── styles/                   ← optional, for shared RCSS stylesheets
 ```
 
+## Skills
+
+When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI drawing code, use the `/surreal-ui` skill. It documents critical RCSS differences from CSS (no user-agent stylesheet, no `border: solid`, no `position: fixed`, etc.) and current SurrealEngine integration status.
+
 ## Phase 1 Limitations
 
-- No scissor enforcement at GPU level (state stored but not applied)
 - No CSS transforms (`SetTransform` not implemented)
 - No `LoadTexture` (image files — fonts work via `GenerateTexture`)
 - No input routing (mouse/keyboard not forwarded to RmlUi)
@@ -58,11 +61,14 @@ RmlUI renders after the UWindow tree but before PostRender, so it overlays on to
 - No hot-reload (restart engine to see UI changes)
 - D3D11 backend has no `DrawUITriangles` implementation
 
+## Completed (Phase 2A)
+
+- GPU scissor region enforcement (`SetUIScissorRegion` on RenderDevice, wired through `RmlUIRenderInterface`)
+
 ## Phase 2 Roadmap
 
 - Input forwarding (mouse clicks, keyboard, scroll)
 - `LoadTexture` for image assets
-- GPU scissor region enforcement
 - CSS transform support (`SetTransform`)
 - RmlUi Debugger toggle
 - Hot-reload (file watcher)

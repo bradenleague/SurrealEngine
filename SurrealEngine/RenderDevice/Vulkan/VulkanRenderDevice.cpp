@@ -670,6 +670,33 @@ void VulkanRenderDevice::DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, 
 	}
 }
 
+void VulkanRenderDevice::ApplyScissor(VulkanCommandBuffer* cmdbuffer, int x, int y, int w, int h)
+{
+	int fbWidth = Textures->Scene->Width;
+	int fbHeight = Textures->Scene->Height;
+
+	scissordesc = {};
+	scissordesc.offset.x = std::max(0, std::min(x, fbWidth));
+	scissordesc.offset.y = std::max(0, std::min(y, fbHeight));
+	scissordesc.extent.width = std::max(0, std::min(w, fbWidth - (int)scissordesc.offset.x));
+	scissordesc.extent.height = std::max(0, std::min(h, fbHeight - (int)scissordesc.offset.y));
+	cmdbuffer->setScissor(0, 1, &scissordesc);
+}
+
+void VulkanRenderDevice::SetUIScissorRegion(FSceneNode* Frame, bool enable, int x, int y, int width, int height)
+{
+	auto cmdbuffer = Commands->GetDrawCommands();
+
+	// Only flush if there's pending geometry
+	if (SceneIndexPos > Batch.SceneIndexStart)
+		DrawBatch(cmdbuffer);
+
+	if (enable)
+		ApplyScissor(cmdbuffer, x, y, width, height);
+	else
+		ApplyScissor(cmdbuffer, Frame->XB, Frame->YB, Frame->X, Frame->Y);
+}
+
 vec4 VulkanRenderDevice::ApplyInverseGamma(vec4 color)
 {
 	if (IsOrtho)
@@ -1022,6 +1049,7 @@ void VulkanRenderDevice::SetSceneNode(FSceneNode* Frame)
 	viewportdesc.minDepth = 0.1f;
 	viewportdesc.maxDepth = 1.0f;
 	commands->setViewport(0, 1, &viewportdesc);
+	ApplyScissor(commands, Frame->XB, Frame->YB, Frame->X, Frame->Y);
 
 	pushconstants.objectToProjection = mat4::frustum(-RProjZ, RProjZ, -Aspect * RProjZ, Aspect * RProjZ, 1.0f, 32768.0f, handedness::left, clipzrange::zero_positive_w);
 

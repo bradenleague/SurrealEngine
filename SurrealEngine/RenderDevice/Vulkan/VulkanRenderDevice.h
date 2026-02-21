@@ -43,6 +43,7 @@ public:
 	void SetHitLocation();
 
 	void DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, const UIVertex* Vertices, int NumVertices, const uint32_t* Indices, int NumIndices) override;
+	void SetUIScissorRegion(FSceneNode* Frame, bool enable, int x, int y, int width, int height) override;
 
 	bool SupportsTextureFormat(TextureFormat Format) override;
 	void UpdateTextureRect(FTextureInfo& Info, int U, int V, int UL, int VL) override;
@@ -127,6 +128,7 @@ private:
 	}
 
 	VkViewport viewportdesc = {};
+	VkRect2D scissordesc = {};
 
 	bool UsePrecache = true;
 	vec4 FlashScale;
@@ -147,6 +149,7 @@ private:
 
 	vec3 ScreenToView(float x, float y, float z);
 	vec4 ApplyInverseGamma(vec4 color);
+	void ApplyScissor(VulkanCommandBuffer* cmdbuffer, int x, int y, int w, int h);
 
 	struct
 	{

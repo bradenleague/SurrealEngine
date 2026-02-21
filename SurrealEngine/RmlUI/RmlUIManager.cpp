@@ -143,6 +143,7 @@ void RmlUIManager::Render(RenderDevice* device, FSceneNode* frame)
 
 	renderInterface->SetRenderState(device, frame);
 	context->Render();
+	renderInterface->ResetScissorState();
 }
 
 void RmlUIManager::SetViewportSize(int width, int height)

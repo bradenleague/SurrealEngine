@@ -129,6 +129,7 @@ public:
 	virtual bool SupportsTextureFormat(TextureFormat Format) = 0;
 	virtual void UpdateTextureRect(FTextureInfo& Info, int U, int V, int UL, int VL) = 0;
 	virtual void DrawUITriangles(FSceneNode* Frame, FTextureInfo* Info, const UIVertex* Vertices, int NumVertices, const uint32_t* Indices, int NumIndices) {}
+	virtual void SetUIScissorRegion(FSceneNode* Frame, bool enable, int x, int y, int width, int height) {}
 
 	bool ParseCommand(std::string* cmd, const std::string& keyword) { return false; }
 

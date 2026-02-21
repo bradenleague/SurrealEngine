@@ -37,6 +37,8 @@ public:
 	void EnableScissorRegion(bool enable) override;
 	void SetScissorRegion(Rml::Rectanglei region) override;
 
+	void ResetScissorState();
+
 private:
 	Rml::TextureHandle GetWhiteTexture();
 
