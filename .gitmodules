@@ -1,0 +1,3 @@
+[submodule "Thirdparty/RmlUi"]
+	path = Thirdparty/RmlUi
+	url = https://github.com/bradenleague/RmlUi.git

@@ -8,7 +8,8 @@ All types are little endian.
 - `uint32` unsigned 32-bit integer
 - `uint64` unsigned 64-bit integer
 - `index` 32-bit integer encoded as described below
-- `name` 8-bit text string encoded as described below
+- `name` serialized string used by name-table entries
+- `name_ref` reference to a name-table entry (stored as `index`)
 
 ### Index Data Type
 A compressed 32 bit integer. Uses the two high bits of the first byte to indicate if its a negative number and if there's more data to read. Then each following byte the high bit is used to indicate additional bits. The following C++ code illustrates how to read it:
@@ -35,8 +36,8 @@ int32_t ReadIndex()
 }
 ```
 
-### Name Data Type
-In packages older than 64 a name string was a zero terminated list types. In newer versions its a `index size` followed by the string. The following C++ code illustrates how to read it:
+### String Data Type
+In package versions older than 64, strings are zero-terminated. In newer versions they are stored as `index length` followed by bytes. The following C++ code illustrates how to read it:
 ```c++
 std::string ReadString()
 {
@@ -89,7 +90,7 @@ struct FileHeader
   endif
 }
 ```
-The package format was clearly inspired by DLL files (oh what a bad idea that was). Each package has objects in it, and references to objects in other package files. The export table lists all objects in the package, while the import table lists all objects referenced by the objects in the package. The name table contains all text strings in the package.
+Each package contains objects and references to objects in other packages. The export table lists objects owned by this package, while the import table lists external references. The name table contains symbol strings.
 
 ## Name Table
 ```
@@ -106,9 +107,9 @@ struct ExportTableEntry
 {
   index Class
   index Base
-  uint32 Package
+  int32 Outer
   index ObjectName
-  index ObjectFlags
+  uint32 ObjectFlags
   index Size
   index Offset
 } ExportTable[FileHeader.ExportCount]
@@ -138,13 +139,13 @@ struct ImportTableEntry
 {
 	index ClassPackage
 	index ClassName
-	uint32 ObjectPackage
+	int32 Outer
 	index ObjectName
 } ImportTable[FileHeader.ImportCount]
 ```
 This is the list of objects not present in this package. They are referenced by the `Class` and `Base` fields in the export table.
 
-The exact rules for how to look up objects here is not fully understood yet. See the `Package::GetUObject` and `Package::FindObjectReference` functions in Surreal Engine's Package.cpp for how to do it. These rules were derived from the UShock project and why they have to look like they do is still unknown. There's also some hacky stuff going on here in the Unreal Engine where the `UnrealI` and `UnrealShare` packages share objects.
+Resolution logic in this codebase is implemented in `Package::GetUObject()` and `Package::FindObjectReference()` (`SurrealEngine/Package/Package.cpp`), including explicit UnrealI/UnrealShare fallback handling.
 
 ## Heritage Table
 ```
@@ -153,7 +154,7 @@ struct HeritageTableEntry
   byte Guid[16]
 } HeritageTable[FileHeader.HeritageCount]
 ```
-No idea what this table was about. Most likely some kind of revision history baked into the package. Don't think it is used for anything.
+Current loader reads this table for package versions `< 68` and does not use it further.
 
 ## Object Format
 All objects begin with the following header:
@@ -171,8 +172,8 @@ struct ObjectHeader
     endif
   endif
 
-  // Instanced objects serializes their unrealscript property values
-  if ExportTable[obj].Class == 0
+  // Non-class objects serialize UnrealScript property values
+  if object is not a UClass
     propertyblock properties
   endif
 }
@@ -198,7 +199,7 @@ struct PropertyHeader
 	UnrealPropertyType type
 	int arrayIndex
 	bool boolValue
-	index structName
+	name structName
 	int size
 }
 
@@ -277,18 +278,18 @@ For some of the property types the value is stored in the header itself. For the
 
 - UPT_Invalid: Should never be present in a package file
 - UPT_Byte: `byte` follows
-- UPT_Int: `uint32` follows
+- UPT_Int: `int32` follows
 - UPT_Bool: `header.boolValue` contains the value
 - UPT_Float: `float` follows
 - UPT_Object: `index` follows (object reference)
 - UPT_Name: `index` follows (index into `NameTable`)
 - UPT_String: `byte[header.size]` follows
-- UPT_Class: Unknown. Not seen in 436
-- UPT_Array: Unknown. Not seen in 436
+- UPT_Class: not handled as a separate on-disk primitive in the current loader (class properties are handled as object references)
+- UPT_Array: dynamic array payload (`arraySize` + elements via inner property type)
 - UPT_Struct: `header.structName` is the struct name of the data that follows
 - UPT_Vector: `float x,y,z` follows
-- UPT_Rotator: `uint32 pitch,yaw,roll` follows
-- UPT_Str: `name` follows
+- UPT_Rotator: `int32 pitch,yaw,roll` follows
+- UPT_Str: UE string payload (`ReadString()`)
 - UPT_Map: `header.size`bytes follows
 - UPT_FixedArray: `header.size` bytes follows
 
@@ -346,7 +347,7 @@ struct FractalTexture : Texture
   byte Pixels[Properties.UClamp * Properties.VClamp]
 }
 ```
-Not really sure what this image is used for. Maybe `IceTexture` or one of the other derived texture objects uses it for something?
+Base storage used by procedural/derived texture classes.
 
 ## FireTexture Object
 ```
@@ -386,7 +387,7 @@ The palette used by a 8-bit texture.
 struct Font : ObjectHeader
 {
   if FileHeader.PackageVersion <= 63
-    Unknown
+    UFont is serialized through the legacy UTexture inheritance path
   else
     index PageCount
     struct Page
@@ -446,4 +447,3 @@ struct TextBuffer : ObjectHeader
 }
 ```
 Unrealscript source code.
-
