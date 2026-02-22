@@ -107,6 +107,7 @@ The `HUDViewModel` struct provides a UObject-free data transfer layer between `E
 
 **Available variables in RML** (data-model="hud"):
 - `{{ health }}` — int, pawn health
+- `{{ health_max }}` — int, max health (default 100)
 - `{{ armor }}` — int, sum of all armor inventory charges
 - `{{ ammo }}` — int, current weapon charge
 - `{{ weapon_name }}` — string, current weapon ItemName
@@ -114,12 +115,25 @@ The `HUDViewModel` struct provides a UObject-free data transfer layer between `E
 - `{{ score }}` — float, from PlayerReplicationInfo
 - `{{ deaths }}` — float, from PlayerReplicationInfo
 - `{{ has_weapon }}` — bool, whether pawn has a weapon equipped
+- `{{ frag_count }}` — int, score cast to int
+- `{{ crosshair }}` — int, crosshair index (0-6) from HUD actor
+- `{{ hud_mode }}` — int, HUD mode (0-5) from HUD actor
+- `{{ weapon_slots }}` — array of WeaponSlot structs (10 elements)
+
+**WeaponSlot struct members** (for `data-for` loops):
+- `slot.occupied` — bool, weapon present in this slot
+- `slot.selected` — bool, currently equipped weapon
+- `slot.name` — string, weapon ItemName
+- `slot.ammo` — int, weapon charge
 
 **Example RML:**
 ```html
 <div data-model="hud">
     <span>{{ health }}</span>
     <span data-if="has_weapon">{{ weapon_name }} ({{ ammo }})</span>
+    <div data-for="slot : weapon_slots">
+        <span data-if="slot.occupied">{{ slot.name }} ({{ slot.ammo }})</span>
+    </div>
 </div>
 ```
 
@@ -136,10 +150,9 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 2C:** Base stylesheet template
 - **Phase 2D:** HUD data model bridge (health, armor, ammo, weapon, player info)
 - **Phase 3:** Infrastructure — multi-document, suppression flags, console commands, render reorder
+- **Phase 4:** HUD expansion — weapon inventory bar, crosshair, frag count, struct array data model
 
 ## Remaining Roadmap
-
-- **Phase 4:** Full HUD replacement (weapon inventory, crosshair, identify, progress messages)
 - **Phase 5:** Messages replacement (toast messages, typing indicator)
 - **Phase 6:** Scoreboard replacement
 - **Phase 7:** Console replacement
