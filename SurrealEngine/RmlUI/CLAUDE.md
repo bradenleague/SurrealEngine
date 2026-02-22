@@ -137,6 +137,37 @@ The `HUDViewModel` struct provides a UObject-free data transfer layer between `E
 </div>
 ```
 
+### Messages Data Model (data-model="messages")
+
+**Flow:** Engine reads console ring buffer (MsgText/MsgTick/MsgType arrays) → populates `MessagesViewModel` → calls `RmlUIManager::UpdateMessagesData()` → manager diffs and dirties.
+
+**Available variables:**
+- `{{ messages }}` — array of MessageEntry structs (up to 4 visible)
+- `{{ is_typing }}` — bool, whether player is typing
+- `{{ typed_string }}` — string, current typed text
+
+**MessageEntry struct members** (for `data-for` loops):
+- `msg.text` — string, message text
+- `msg.type` — string, message type name ("Say", "TeamSay", "CriticalEvent", "Console")
+- `msg.color` — string, CSS color mapped from type ("#44dd66"=Say, "#4488ff"=Critical, "#dddddd"=default)
+- `msg.time_remaining` — float, seconds until message expires
+
+**Example RML:**
+```html
+<div data-model="messages">
+    <div data-for="msg : messages">
+        <span data-style-color="msg.color">{{ msg.text }}</span>
+    </div>
+    <div data-if="is_typing">
+        <span>&gt; {{ typed_string }}</span>
+    </div>
+</div>
+```
+
+### Console PostRender Suppression
+
+Console PostRender handles both `DrawSingleView` (toast messages) and `DrawConsoleView` (console panel). The suppression gate uses AND: both `bRmlMessages` AND `bRmlConsole` must be true to suppress. This allows partial replacement (Phase 5 messages without Phase 7 console) without breaking the console view.
+
 ## Skills
 
 When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI drawing code, use the `/surreal-ui` skill. It documents critical RCSS differences from CSS (no user-agent stylesheet, no `border: solid`, no `position: fixed`, etc.) and current SurrealEngine integration status.
@@ -151,9 +182,9 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 2D:** HUD data model bridge (health, armor, ammo, weapon, player info)
 - **Phase 3:** Infrastructure — multi-document, suppression flags, console commands, render reorder
 - **Phase 4:** HUD expansion — weapon inventory bar, crosshair, frag count, struct array data model
+- **Phase 5:** Messages replacement — toast messages, typing indicator, data-style-color, AND suppression logic
 
 ## Remaining Roadmap
-- **Phase 5:** Messages replacement (toast messages, typing indicator)
 - **Phase 6:** Scoreboard replacement
 - **Phase 7:** Console replacement
 - **Phase 8:** Menu replacement
