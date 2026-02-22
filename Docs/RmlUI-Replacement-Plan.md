@@ -9,7 +9,7 @@ Tracking document for the multi-phase replacement of all UE1 script-rendered UI 
 | 3 | Infrastructure | **Done** | Multi-document, suppression flags, console commands, render reorder |
 | 4 | HUD | **Done** | Weapon bar, crosshair, frag count, data model array binding |
 | 5 | Messages | **Done** | Toast messages, typing indicator, data-style-color |
-| 6 | Scoreboard | Pending | Tab-key scoreboard panel |
+| 6 | Scoreboard | **Done** | Tab-key panel, player iteration, score sorting |
 | 7 | Console | Pending | Tilde-key sliding console |
 | 8 | Menus | Pending | Escape-key game menu (largest phase) |
 | 9 | UWindow Retirement | Pending | Final cleanup after all surfaces replaced |
