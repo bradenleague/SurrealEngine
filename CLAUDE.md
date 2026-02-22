@@ -24,7 +24,11 @@ Produces three executables in `build/`: `SurrealEngine`, `SurrealEditor`, `Surre
 
 A `SurrealEngine.pk3` resource file is copied alongside the game executable post-build.
 
-CI builds on Windows (MSVC), Linux (GCC 12, Clang 15) via GitHub Actions. A lightweight test executable `TestRmlUI` validates the RmlUI subsystem (`./build/TestRmlUI`).
+CI builds on Windows (MSVC), Linux (GCC 12, Clang 15) via GitHub Actions. A lightweight test executable `TestRmlUI` validates the RmlUI subsystem:
+
+```bash
+./build/TestRmlUI
+```
 
 ## Running
 
@@ -129,6 +133,43 @@ Nested `CLAUDE.md` files provide deeper context for agents working in specific a
 - `SurrealEngine/UObject/CLAUDE.md` — object model, UWindow hierarchy, UCanvas properties
 - `SurrealEngine/RmlUI/CLAUDE.md` — RmlUi integration, lifecycle, interfaces, phase roadmap
 
+## UnrealScript Source (Unreal-PubSrc)
+
+A hard fork of [OldUnreal/Unreal-PubSrc](https://github.com/OldUnreal/Unreal-PubSrc) lives at `~/dev/Unreal-PubSrc/` (branch `surreal`). It contains the full v227 UnrealScript source for Unreal Gold plus our custom `SurrealUI` package.
+
+### Compile workflow
+
+```bash
+cd ~/dev/Unreal-PubSrc
+./build.sh          # copies source + wine UCC.exe make → produces .u in game System/
+./build.sh clean    # delete .u and recompile
+```
+
+Requires Wine (`sudo pacman -S wine`). Compiles against `~/dev/games/UnrealGold` (v226).
+
+### Key directories
+
+- `~/dev/Unreal-PubSrc/SurrealUI/Classes/` — our custom UnrealScript package
+- `~/dev/Unreal-PubSrc/Engine/Classes/` — base Engine classes (HUD, Canvas, Console, etc.)
+- `~/dev/Unreal-PubSrc/UnrealShare/Classes/` — Unreal Gold gameplay (UnrealHUD, menus, scoreboard)
+
+See `~/dev/Unreal-PubSrc/CLAUDE.md` for full details.
+
 ## Supported Games
 
 Primary targets (relatively playable): UT99 v436, Unreal Gold v226. Many other UE1 games are detected but have varying levels of functionality. See `Docs/Status.md` for details.
+
+## UI Content
+
+The RmlUI HUD is developed in the game's `UI/` folder. Our active content directory:
+
+```
+~/dev/games/UnrealGold/UI/
+├── index.rml              ← entry document, auto-loaded
+├── fonts/                 ← LatoLatin, SpaceGrotesk, SpaceMono, DejaVuSans, OpenSans
+└── styles/
+    ├── base.rcss          ← reset/block-display defaults
+    └── hud.rcss           ← HUD layout and styling
+```
+
+This content is loaded at runtime when the engine detects the `UI/` directory. Changes to `.rml`/`.rcss` files take effect on next launch (no hot-reload yet). Use `/surreal-ui` when editing these files.
