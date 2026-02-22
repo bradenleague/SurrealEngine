@@ -91,6 +91,13 @@ struct ScoreboardViewModel
 	bool visible = false;
 };
 
+struct ConsoleViewModel
+{
+	std::vector<std::string> logLines;  // ring buffer contents, most recent first
+	std::string typedStr;
+	bool visible = false;
+};
+
 class RmlUIManager
 {
 public:
@@ -133,6 +140,7 @@ public:
 	void UpdateHUDData(const HUDViewModel& data);
 	void UpdateMessagesData(const MessagesViewModel& data);
 	void UpdateScoreboardData(const ScoreboardViewModel& data);
+	void UpdateConsoleData(const ConsoleViewModel& data);
 
 private:
 	Rml::ElementDocument* GetDocument(const std::string& name) const;
@@ -163,4 +171,7 @@ private:
 
 	ScoreboardViewModel scoreboardViewModel;
 	Rml::DataModelHandle scoreboardModelHandle;
+
+	ConsoleViewModel consoleViewModel;
+	Rml::DataModelHandle consoleModelHandle;
 };

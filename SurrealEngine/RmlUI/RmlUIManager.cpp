@@ -138,6 +138,7 @@ void RmlUIManager::Shutdown()
 	hudModelHandle = {};
 	messagesModelHandle = {};
 	scoreboardModelHandle = {};
+	consoleModelHandle = {};
 	hudDocument = nullptr;
 	messagesDocument = nullptr;
 	scoreboardDocument = nullptr;
@@ -573,6 +574,24 @@ void RmlUIManager::SetupDataModel()
 	scoreboardModelHandle = sbConstructor.GetModelHandle();
 
 	::LogMessage("RmlUi: Scoreboard data model created");
+
+	// --- Console data model ---
+	Rml::DataModelConstructor conConstructor = context->CreateDataModel("console");
+	if (!conConstructor)
+	{
+		::LogMessage("RmlUi WARNING: Failed to create console data model");
+		return;
+	}
+
+	conConstructor.RegisterArray<std::vector<std::string>>();
+
+	conConstructor.Bind("log_lines", &consoleViewModel.logLines);
+	conConstructor.Bind("typed_str", &consoleViewModel.typedStr);
+	conConstructor.Bind("visible", &consoleViewModel.visible);
+
+	consoleModelHandle = conConstructor.GetModelHandle();
+
+	::LogMessage("RmlUi: Console data model created");
 }
 
 void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
@@ -699,5 +718,33 @@ void RmlUIManager::UpdateScoreboardData(const ScoreboardViewModel& data)
 			ShowDocument("scoreboard");
 		else
 			HideDocument("scoreboard");
+	}
+}
+
+void RmlUIManager::UpdateConsoleData(const ConsoleViewModel& data)
+{
+	if (!initialized || !consoleModelHandle)
+		return;
+
+	if (consoleViewModel.logLines != data.logLines)
+	{
+		consoleViewModel.logLines = data.logLines;
+		consoleModelHandle.DirtyVariable("log_lines");
+	}
+	if (consoleViewModel.typedStr != data.typedStr)
+	{
+		consoleViewModel.typedStr = data.typedStr;
+		consoleModelHandle.DirtyVariable("typed_str");
+	}
+	if (consoleViewModel.visible != data.visible)
+	{
+		consoleViewModel.visible = data.visible;
+		consoleModelHandle.DirtyVariable("visible");
+
+		// Show/hide console document based on visibility
+		if (data.visible)
+			ShowDocument("console");
+		else
+			HideDocument("console");
 	}
 }

@@ -710,6 +710,60 @@ static void TestUpdateScoreboardDataEmpty()
 	std::cout << "OK\n";
 }
 
+// ---- Console Data Model Tests ----
+
+static void TestUpdateConsoleData()
+{
+	std::cout << "  DataModel: UpdateConsoleData with log lines... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	ConsoleViewModel con;
+	con.visible = true;
+	con.typedStr = "stat fps";
+	con.logLines.push_back("Welcome to SurrealEngine");
+	con.logLines.push_back("Type 'help' for commands");
+	mgr.UpdateConsoleData(con);
+
+	// Execute command — log updates
+	con.logLines.insert(con.logLines.begin(), "(>stat fps");
+	con.typedStr = "";
+	mgr.UpdateConsoleData(con);
+
+	// Close console
+	con.visible = false;
+	mgr.UpdateConsoleData(con);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateConsoleDataEmpty()
+{
+	std::cout << "  DataModel: UpdateConsoleData empty... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	ConsoleViewModel con;
+	mgr.UpdateConsoleData(con);
+	mgr.UpdateConsoleData(con);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -765,6 +819,10 @@ int main()
 	std::cout << "\nScoreboard Data Model:\n";
 	TestUpdateScoreboardData();
 	TestUpdateScoreboardDataEmpty();
+
+	std::cout << "\nConsole Data Model:\n";
+	TestUpdateConsoleData();
+	TestUpdateConsoleDataEmpty();
 
 	CleanupTestDir();
 

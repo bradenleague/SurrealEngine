@@ -314,6 +314,45 @@ void Engine::Run()
 				// Scoreboard properties may not exist in all game versions
 			}
 			rmlui->UpdateScoreboardData(sb);
+
+			// Extract console state
+			ConsoleViewModel con;
+			try
+			{
+				if (console)
+				{
+					// Console is visible when ConsolePos > 0 (sliding animation)
+					float consolePos = console->ConsolePos();
+					con.visible = (consolePos > 0.0f);
+
+					if (con.visible)
+					{
+						con.typedStr = console->TypedStr();
+
+						// Read log lines from ring buffer (most recent first)
+						int topLine = console->TopLine();
+						int numLines = console->numLines();
+						std::string* msgTextBase = &console->MsgText();
+
+						int maxLines = std::min(numLines, 32);
+						for (int i = 0; i < maxLines; i++)
+						{
+							int idx = (topLine - i + 64) % 64;
+							const std::string& line = msgTextBase[idx];
+							if (!line.empty())
+								con.logLines.push_back(line);
+						}
+					}
+				}
+			}
+			catch (const std::exception&)
+			{
+				// Console properties may not exist in all game versions
+			}
+			rmlui->UpdateConsoleData(con);
+
+			// Set bRmlConsole when console document exists and console is active
+			uiSuppression.bRmlConsole = con.visible && rmlui->IsInitialized();
 		}
 
 		if (rmlui) rmlui->Update();
