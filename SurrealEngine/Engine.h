@@ -212,6 +212,7 @@ public:
 
 private:
 	std::map<std::string, std::string> CreateTravelInfo(bool transferItems);
+	bool ShouldRouteInputToUI() const;
 
 	void LogGamePackageSHA1Sums() const;
 

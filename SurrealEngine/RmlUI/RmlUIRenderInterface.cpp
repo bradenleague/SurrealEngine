@@ -3,6 +3,8 @@
 #include "RmlUI/RmlUIRenderInterface.h"
 #include "RenderDevice/RenderDevice.h"
 #include "Utils/Logger.h"
+#include <RmlUi/Core.h>
+#include <stb_image.h>
 
 RmlUIRenderInterface::RmlUIRenderInterface()
 {
@@ -83,8 +85,56 @@ void RmlUIRenderInterface::ReleaseGeometry(Rml::CompiledGeometryHandle geometry)
 
 Rml::TextureHandle RmlUIRenderInterface::LoadTexture(Rml::Vector2i& texture_dimensions, const Rml::String& source)
 {
-	::LogMessage("RmlUi: LoadTexture not implemented in Phase 1: " + source);
-	return 0;
+	Rml::FileInterface* fileInterface = Rml::GetFileInterface();
+	if (!fileInterface)
+		return 0;
+
+	Rml::FileHandle fileHandle = fileInterface->Open(source);
+	if (!fileHandle)
+	{
+		::LogMessage("RmlUi WARNING: Could not open texture file: " + source);
+		return 0;
+	}
+
+	// Read entire file into memory
+	fileInterface->Seek(fileHandle, 0, SEEK_END);
+	size_t fileSize = fileInterface->Tell(fileHandle);
+	fileInterface->Seek(fileHandle, 0, SEEK_SET);
+
+	std::vector<uint8_t> fileData(fileSize);
+	size_t bytesRead = fileInterface->Read(fileData.data(), fileSize, fileHandle);
+	fileInterface->Close(fileHandle);
+
+	if (bytesRead != fileSize)
+	{
+		::LogMessage("RmlUi ERROR: Failed to read texture file: " + source);
+		return 0;
+	}
+
+	// Decode with stb_image (force RGBA)
+	int w = 0, h = 0, channels = 0;
+	stbi_uc* pixels = stbi_load_from_memory(fileData.data(), (int)fileSize, &w, &h, &channels, 4);
+	if (!pixels)
+	{
+		::LogMessage("RmlUi ERROR: Failed to decode texture: " + source + " (" + stbi_failure_reason() + ")");
+		return 0;
+	}
+
+	texture_dimensions.x = w;
+	texture_dimensions.y = h;
+
+	// Delegate to GenerateTexture (handles RGBA→BGRA + FTextureInfo creation)
+	Rml::TextureHandle handle = GenerateTexture(
+		Rml::Span<const Rml::byte>(pixels, w * h * 4),
+		Rml::Vector2i(w, h)
+	);
+
+	stbi_image_free(pixels);
+
+	if (handle)
+		::LogMessage("RmlUi: Loaded texture: " + source);
+
+	return handle;
 }
 
 Rml::TextureHandle RmlUIRenderInterface::GenerateTexture(Rml::Span<const Rml::byte> source, Rml::Vector2i source_dimensions)

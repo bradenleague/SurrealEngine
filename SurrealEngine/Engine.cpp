@@ -153,6 +153,47 @@ void Engine::Run()
 
 		UpdateInput(realTimeElapsed);
 
+		// Update RmlUI HUD data model from game state
+		if (rmlui && rmlui->IsInitialized())
+		{
+			HUDViewModel hud;
+			try
+			{
+				UPawn* pawn = UObject::TryCast<UPawn>(viewport->Actor());
+				if (pawn)
+				{
+					hud.health = pawn->Health();
+					hud.hasWeapon = (pawn->Weapon() != nullptr);
+					if (pawn->Weapon())
+					{
+						hud.weaponName = pawn->Weapon()->ItemName();
+						hud.ammo = pawn->Weapon()->Charge();
+					}
+					// Walk inventory chain for armor
+					UInventory* inv = pawn->Inventory();
+					while (inv)
+					{
+						if (inv->bIsAnArmor())
+							hud.armor += inv->Charge();
+						inv = inv->Inventory();
+					}
+					// PlayerReplicationInfo (may not exist in older engine versions)
+					UPlayerReplicationInfo* pri = pawn->PlayerReplicationInfo();
+					if (pri)
+					{
+						hud.playerName = pri->PlayerName();
+						hud.score = pri->Score();
+						hud.deaths = pri->Deaths();
+					}
+				}
+			}
+			catch (const std::exception&)
+			{
+				// Some properties may not exist in older game versions — silently use defaults
+			}
+			rmlui->UpdateHUDData(hud);
+		}
+
 		if (rmlui) rmlui->Update();
 
 		SetPause(!LevelInfo->Pauser().empty());
@@ -1456,6 +1497,11 @@ void Engine::TickWindow()
 	}
 }
 
+bool Engine::ShouldRouteInputToUI() const
+{
+	return rmlui && rmlui->IsInitialized() && viewport->bShowWindowsMouse();
+}
+
 void Engine::OnWindowPaint()
 {
 }
@@ -1470,6 +1516,16 @@ void Engine::OnWindowMouseMove(const Point& pos)
 		viewport->WindowsMouseX() = (float)(pos.x * window->GetDpiScale());
 		viewport->WindowsMouseY() = (float)(pos.y * window->GetDpiScale());
 	}
+
+	// Always forward position to RmlUI for hover tracking
+	if (rmlui && rmlui->IsInitialized())
+	{
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		rmlui->ProcessMouseMove(
+			(int)(pos.x * window->GetDpiScale()),
+			(int)(pos.y * window->GetDpiScale()),
+			modifiers);
+	}
 }
 
 void Engine::OnWindowMouseDown(const Point& pos, EInputKey key)
@@ -1477,17 +1533,41 @@ void Engine::OnWindowMouseDown(const Point& pos, EInputKey key)
 	if (playingAvi)
 		return;
 
+	if (ShouldRouteInputToUI())
+	{
+		int button = RmlUIManager::MapMouseButton(key);
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessMouseButtonDown(button, modifiers))
+			return;
+	}
+
 	InputEvent(key, IST_Press);
 }
 
 void Engine::OnWindowMouseDoubleclick(const Point& pos, EInputKey key)
 {
+	// RmlUi handles double-click timing internally; forward as button-down
+	if (ShouldRouteInputToUI())
+	{
+		int button = RmlUIManager::MapMouseButton(key);
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessMouseButtonDown(button, modifiers))
+			return;
+	}
 }
 
 void Engine::OnWindowMouseUp(const Point& pos, EInputKey key)
 {
 	if (playingAvi)
 		return;
+
+	if (ShouldRouteInputToUI())
+	{
+		int button = RmlUIManager::MapMouseButton(key);
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessMouseButtonUp(button, modifiers))
+			return;
+	}
 
 	InputEvent(key, IST_Release);
 }
@@ -1496,6 +1576,14 @@ void Engine::OnWindowMouseWheel(const Point& pos, EInputKey key)
 {
 	if (playingAvi)
 		return;
+
+	if (ShouldRouteInputToUI())
+	{
+		float delta = (key == IK_MouseWheelDown) ? 1.0f : -1.0f;
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessMouseWheel(delta, modifiers))
+			return;
+	}
 
 	InputEvent(key, IST_Press);
 	InputEvent(key, IST_Release);
@@ -1515,6 +1603,12 @@ void Engine::OnWindowKeyChar(std::string chars)
 	if (playingAvi)
 		return;
 
+	if (ShouldRouteInputToUI())
+	{
+		if (rmlui->ProcessTextInput(chars))
+			return;
+	}
+
 	Key(chars);
 }
 
@@ -1527,6 +1621,13 @@ void Engine::OnWindowKeyDown(EInputKey key)
 		return;
 	}
 
+	if (ShouldRouteInputToUI())
+	{
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessKeyDown(key, modifiers))
+			return;
+	}
+
 	InputEvent(key, IST_Press);
 }
 
@@ -1535,11 +1636,22 @@ void Engine::OnWindowKeyUp(EInputKey key)
 	if (playingAvi)
 		return;
 
+	if (ShouldRouteInputToUI())
+	{
+		int modifiers = RmlUIManager::GetKeyModifierState();
+		if (rmlui->ProcessKeyUp(key, modifiers))
+			return;
+	}
+
 	InputEvent(key, IST_Release);
 }
 
 void Engine::OnWindowGeometryChanged()
 {
+	if (rmlui && rmlui->IsInitialized() && window)
+	{
+		rmlui->SetViewportSize(window->GetPixelWidth(), window->GetPixelHeight());
+	}
 }
 
 void Engine::OnWindowClose()
@@ -1555,6 +1667,8 @@ void Engine::OnWindowActivated()
 void Engine::OnWindowDeactivated()
 {
 	//SetPause(true);
+	if (rmlui && rmlui->IsInitialized())
+		rmlui->ProcessMouseLeave();
 }
 
 void Engine::OnWindowDpiScaleChanged()

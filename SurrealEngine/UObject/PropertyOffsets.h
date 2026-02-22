@@ -8,6 +8,7 @@ struct PropertyDataOffset
 {
 	size_t DataOffset = ~(size_t)0;
 	uint32_t BitfieldMask = 1;
+	bool IsValid() const { return DataOffset != ~(size_t)0; }
 };
 
 struct PropertyOffsets_Object

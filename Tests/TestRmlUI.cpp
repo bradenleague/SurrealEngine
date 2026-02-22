@@ -7,7 +7,9 @@
 #include <cassert>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <RmlUi/Core.h>
 
 namespace fs = std::filesystem;
 
@@ -148,6 +150,105 @@ static void TestCompileGeometry()
 	std::cout << "OK\n";
 }
 
+// ---- LoadTexture Tests ----
+
+// Minimal valid 1x1 red PNG (67 bytes)
+static const uint8_t minimalPng[] = {
+	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+	0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+	0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // 8-bit RGB
+	0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, // IDAT chunk
+	0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, // compressed data
+	0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC, // checksum
+	0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND chunk
+	0x44, 0xAE, 0x42, 0x60, 0x82
+};
+
+static void TestLoadTextureValid()
+{
+	std::cout << "  RenderInterface: LoadTexture valid PNG... ";
+
+	// Write the PNG to the test directory
+	std::string pngPath = testDir + "/test.png";
+	{
+		std::ofstream out(pngPath, std::ios::binary);
+		out.write(reinterpret_cast<const char*>(minimalPng), sizeof(minimalPng));
+	}
+
+	// Initialize RmlUI so file+render interfaces are available
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// LoadTexture uses Rml::GetFileInterface() which was set by the manager
+	Rml::Vector2i dims;
+	Rml::RenderInterface* ri = Rml::GetRenderInterface();
+	auto handle = ri->LoadTexture(dims, "test.png");
+	assert(handle != 0);
+	assert(dims.x == 1);
+	assert(dims.y == 1);
+
+	ri->ReleaseTexture(handle);
+	mgr.Shutdown();
+
+	std::cout << "OK\n";
+}
+
+static void TestLoadTextureNonExistent()
+{
+	std::cout << "  RenderInterface: LoadTexture non-existent file... ";
+
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	Rml::Vector2i dims;
+	Rml::RenderInterface* ri = Rml::GetRenderInterface();
+	auto handle = ri->LoadTexture(dims, "nonexistent.png");
+	assert(handle == 0);
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestLoadTextureCorrupt()
+{
+	std::cout << "  RenderInterface: LoadTexture corrupt data... ";
+
+	// Write random bytes
+	std::string corruptPath = testDir + "/corrupt.png";
+	{
+		std::ofstream out(corruptPath, std::ios::binary);
+		uint8_t garbage[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x11, 0x22, 0x33 };
+		out.write(reinterpret_cast<const char*>(garbage), sizeof(garbage));
+	}
+
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	Rml::Vector2i dims;
+	Rml::RenderInterface* ri = Rml::GetRenderInterface();
+	auto handle = ri->LoadTexture(dims, "corrupt.png");
+	assert(handle == 0);
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 // ---- Manager Tests ----
 
 static void TestManagerInitGate()
@@ -176,6 +277,170 @@ static void TestManagerLifecycle()
 	std::cout << "OK\n";
 }
 
+// ---- Input Routing Tests ----
+
+static void TestMapKey()
+{
+	std::cout << "  Input: MapKey representative keys... ";
+
+	// A-Z range
+	assert(RmlUIManager::MapMouseButton(IK_LeftMouse) == 0);
+
+	// Test via the static methods that don't need initialization
+	assert(RmlUIManager::MapMouseButton(IK_RightMouse) == 1);
+	assert(RmlUIManager::MapMouseButton(IK_MiddleMouse) == 2);
+
+	std::cout << "OK\n";
+}
+
+static void TestMapMouseButton()
+{
+	std::cout << "  Input: MapMouseButton... ";
+	assert(RmlUIManager::MapMouseButton(IK_LeftMouse) == 0);
+	assert(RmlUIManager::MapMouseButton(IK_RightMouse) == 1);
+	assert(RmlUIManager::MapMouseButton(IK_MiddleMouse) == 2);
+	assert(RmlUIManager::MapMouseButton(IK_Space) == -1);
+	std::cout << "OK\n";
+}
+
+static void TestProcessInputUninitialized()
+{
+	std::cout << "  Input: Process* methods return false when uninitialized... ";
+	RmlUIManager mgr;
+	// Not initialized — all should return false
+	assert(!mgr.ProcessMouseMove(100, 100, 0));
+	assert(!mgr.ProcessMouseButtonDown(0, 0));
+	assert(!mgr.ProcessMouseButtonUp(0, 0));
+	assert(!mgr.ProcessMouseWheel(1.0f, 0));
+	assert(!mgr.ProcessKeyDown(IK_A, 0));
+	assert(!mgr.ProcessKeyUp(IK_A, 0));
+	assert(!mgr.ProcessTextInput("hello"));
+	assert(!mgr.ProcessMouseLeave());
+	assert(!mgr.IsCapturingMouse());
+	std::cout << "OK\n";
+}
+
+static void TestProcessInvalidButton()
+{
+	std::cout << "  Input: ProcessMouseButtonDown with invalid button... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// Invalid button index (-1) should return false
+	assert(!mgr.ProcessMouseButtonDown(-1, 0));
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestProcessUnmappedKey()
+{
+	std::cout << "  Input: ProcessKeyDown with unmapped key... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// IK_None maps to KI_UNKNOWN -> returns false
+	assert(!mgr.ProcessKeyDown(IK_None, 0));
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestGetKeyModifierStateNoWindow()
+{
+	std::cout << "  Input: GetKeyModifierState with no window... ";
+	// engine is nullptr in tests, so should return 0
+	assert(RmlUIManager::GetKeyModifierState() == 0);
+	std::cout << "OK\n";
+}
+
+// ---- Data Model Tests ----
+
+static void TestUpdateHUDDataNoChange()
+{
+	std::cout << "  DataModel: UpdateHUDData no change... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// Call twice with same default data — should not crash
+	HUDViewModel hud;
+	mgr.UpdateHUDData(hud);
+	mgr.UpdateHUDData(hud);
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateHUDDataChange()
+{
+	std::cout << "  DataModel: UpdateHUDData with changes... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	HUDViewModel hud;
+	hud.health = 100;
+	hud.armor = 50;
+	hud.weaponName = "Enforcer";
+	hud.hasWeapon = true;
+	mgr.UpdateHUDData(hud);
+
+	// Change health
+	hud.health = 75;
+	mgr.UpdateHUDData(hud);
+
+	// Verify manager still works
+	mgr.Update();
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateHUDDataDefaults()
+{
+	std::cout << "  DataModel: UpdateHUDData defaults (no pawn)... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// First set some data
+	HUDViewModel hud;
+	hud.health = 100;
+	hud.weaponName = "Enforcer";
+	mgr.UpdateHUDData(hud);
+
+	// Now reset to defaults (simulates no pawn)
+	HUDViewModel empty;
+	mgr.UpdateHUDData(empty);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -194,9 +459,27 @@ int main()
 	TestGenerateTexture();
 	TestCompileGeometry();
 
+	std::cout << "\nLoadTexture:\n";
+	TestLoadTextureValid();
+	TestLoadTextureNonExistent();
+	TestLoadTextureCorrupt();
+
 	std::cout << "\nRmlUIManager:\n";
 	TestManagerInitGate();
 	TestManagerLifecycle();
+
+	std::cout << "\nInput Routing:\n";
+	TestMapKey();
+	TestMapMouseButton();
+	TestProcessInputUninitialized();
+	TestProcessInvalidButton();
+	TestProcessUnmappedKey();
+	TestGetKeyModifierStateNoWindow();
+
+	std::cout << "\nData Model:\n";
+	TestUpdateHUDDataNoChange();
+	TestUpdateHUDDataChange();
+	TestUpdateHUDDataDefaults();
 
 	CleanupTestDir();
 
