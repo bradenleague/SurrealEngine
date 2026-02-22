@@ -184,6 +184,7 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 4:** HUD expansion — weapon inventory bar, crosshair, frag count, struct array data model
 - **Phase 5:** Messages replacement — toast messages, typing indicator, data-style-color, AND suppression logic
 - **Phase 6:** Scoreboard replacement — Tab-key panel, PlayerReplicationInfo iteration, score sorting
+- **Phase 7:** Console replacement — tilde-key panel, log mirror, UScript state passthrough
 
 ## Remaining Roadmap
 - **Phase 6:** Scoreboard replacement
