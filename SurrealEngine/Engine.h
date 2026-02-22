@@ -13,6 +13,15 @@
 #include <set>
 #include <list>
 
+struct UISuppressionFlags
+{
+	bool bRmlHUD = false;
+	bool bRmlMessages = false;
+	bool bRmlScoreboard = false;
+	bool bRmlConsole = false;
+	bool bRmlMenus = false;
+};
+
 class RenderSubsystem;
 class PackageManager;
 class UObject;
@@ -163,6 +172,7 @@ public:
 	std::unique_ptr<GameWindow> window; // TODO: Move into UViewport
 	std::unique_ptr<RenderSubsystem> render;
 	std::unique_ptr<RmlUIManager> rmlui;
+	UISuppressionFlags uiSuppression;
 
 	int MouseMoveX = 0;
 	int MouseMoveY = 0;

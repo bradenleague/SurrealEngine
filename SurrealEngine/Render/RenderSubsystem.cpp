@@ -51,13 +51,13 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		DrawRootWindow();
 	}
 
+	PostRender();
+
 	if (engine->rmlui && engine->rmlui->IsInitialized())
 	{
 		Device->SetSceneNode(&Canvas.Frame);
 		engine->rmlui->Render(Device, &Canvas.Frame);
 	}
-
-	PostRender();
 
 	Device->Unlock(true);
 }

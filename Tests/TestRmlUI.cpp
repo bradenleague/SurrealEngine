@@ -364,6 +364,60 @@ static void TestGetKeyModifierStateNoWindow()
 	std::cout << "OK\n";
 }
 
+// ---- Multi-Document Tests ----
+
+static void TestDocumentManagementUninitialized()
+{
+	std::cout << "  MultiDoc: document methods on uninitialized manager... ";
+	RmlUIManager mgr;
+	// Should not crash
+	mgr.ShowDocument("hud");
+	mgr.HideDocument("hud");
+	mgr.ToggleDocument("hud");
+	assert(!mgr.IsDocumentVisible("hud"));
+	assert(!mgr.HasActiveInteractiveDocument());
+	std::cout << "OK\n";
+}
+
+static void TestDocumentManagementInvalidName()
+{
+	std::cout << "  MultiDoc: invalid document name... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// Invalid name should not crash
+	mgr.ShowDocument("nonexistent");
+	mgr.HideDocument("nonexistent");
+	mgr.ToggleDocument("nonexistent");
+	assert(!mgr.IsDocumentVisible("nonexistent"));
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestHasActiveInteractiveDocument()
+{
+	std::cout << "  MultiDoc: HasActiveInteractiveDocument with no docs loaded... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// No documents loaded in test dir, so none can be interactive
+	assert(!mgr.HasActiveInteractiveDocument());
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 // ---- Data Model Tests ----
 
 static void TestUpdateHUDDataNoChange()
@@ -382,6 +436,67 @@ static void TestUpdateHUDDataNoChange()
 	mgr.UpdateHUDData(hud);
 	mgr.UpdateHUDData(hud);
 
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateHUDDataWeaponSlots()
+{
+	std::cout << "  DataModel: UpdateHUDData with weapon slots... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	HUDViewModel hud;
+	hud.weaponSlots.resize(10);
+	hud.weaponSlots[1].occupied = true;
+	hud.weaponSlots[1].name = "Enforcer";
+	hud.weaponSlots[1].ammo = 20;
+	hud.weaponSlots[1].selected = true;
+	hud.weaponSlots[2].occupied = true;
+	hud.weaponSlots[2].name = "ASMD";
+	hud.weaponSlots[2].ammo = 40;
+	mgr.UpdateHUDData(hud);
+
+	// Switch weapon
+	hud.weaponSlots[1].selected = false;
+	hud.weaponSlots[2].selected = true;
+	mgr.UpdateHUDData(hud);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateHUDDataExpandedFields()
+{
+	std::cout << "  DataModel: UpdateHUDData expanded fields... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	HUDViewModel hud;
+	hud.health = 100;
+	hud.healthMax = 200;
+	hud.fragCount = 5;
+	hud.crosshairIndex = 3;
+	hud.hudMode = 1;
+	mgr.UpdateHUDData(hud);
+
+	// Change values
+	hud.fragCount = 6;
+	hud.crosshairIndex = 0;
+	mgr.UpdateHUDData(hud);
+
+	mgr.Update();
 	mgr.Shutdown();
 	std::cout << "OK\n";
 }
@@ -476,8 +591,15 @@ int main()
 	TestProcessUnmappedKey();
 	TestGetKeyModifierStateNoWindow();
 
+	std::cout << "\nMulti-Document:\n";
+	TestDocumentManagementUninitialized();
+	TestDocumentManagementInvalidName();
+	TestHasActiveInteractiveDocument();
+
 	std::cout << "\nData Model:\n";
 	TestUpdateHUDDataNoChange();
+	TestUpdateHUDDataWeaponSlots();
+	TestUpdateHUDDataExpandedFields();
 	TestUpdateHUDDataChange();
 	TestUpdateHUDDataDefaults();
 

@@ -85,11 +85,17 @@ void RenderSubsystem::RenderOverlays()
 void RenderSubsystem::PostRender()
 {
 	Device->SetSceneNode(&Canvas.Frame);
-	if (engine->viewport->Actor())
+
+	// Gate actor PostRender (HUD/scoreboard) on RmlUI suppression
+	if (engine->viewport->Actor() && !engine->uiSuppression.bRmlHUD)
 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
-	CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+
+	// Gate console PostRender (messages/console drawing) on RmlUI suppression
+	if (!engine->uiSuppression.bRmlMessages && !engine->uiSuppression.bRmlConsole)
+		CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
+
 	DrawTimedemoStats();
-	
+
 	if (ShowCollisionDebug)
 		DrawCollisionDebug();
 }

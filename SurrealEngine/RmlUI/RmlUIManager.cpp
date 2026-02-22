@@ -29,6 +29,7 @@ bool RmlUIManager::Initialize(const std::string& uiRootPath, int width, int heig
 	}
 
 	::LogMessage("RmlUi: Initializing with UI root: " + uiRootPath);
+	uiRoot = uiRootPath;
 
 	systemInterface = std::make_unique<RmlUISystemInterface>();
 	fileInterface = std::make_unique<RmlUIFileInterface>(uiRootPath);
@@ -96,19 +97,31 @@ bool RmlUIManager::Initialize(const std::string& uiRootPath, int width, int heig
 	// Set up data model before loading documents
 	SetupDataModel();
 
-	// Load index.rml if it exists
-	std::string indexPath = uiRootPath + "/index.rml";
-	if (std::filesystem::exists(indexPath))
+	// Load named documents
+	struct { const char* filename; Rml::ElementDocument** target; bool showOnLoad; } docs[] = {
+		{ "hud.rml",        &hudDocument,        true  },
+		{ "messages.rml",   &messagesDocument,   false },
+		{ "scoreboard.rml", &scoreboardDocument, false },
+		{ "console.rml",    &consoleDocument,    false },
+		{ "menu.rml",       &menuDocument,       false },
+	};
+
+	for (auto& doc : docs)
 	{
-		Rml::ElementDocument* document = context->LoadDocument("index.rml");
-		if (document)
+		std::string fullPath = uiRootPath + "/" + doc.filename;
+		if (std::filesystem::exists(fullPath))
 		{
-			document->Show();
-			::LogMessage("RmlUi: Loaded document: " + indexPath);
-		}
-		else
-		{
-			::LogMessage("RmlUi WARNING: Failed to load index.rml");
+			*doc.target = context->LoadDocument(doc.filename);
+			if (*doc.target)
+			{
+				if (doc.showOnLoad)
+					(*doc.target)->Show();
+				::LogMessage("RmlUi: Loaded document: " + std::string(doc.filename));
+			}
+			else
+			{
+				::LogMessage("RmlUi WARNING: Failed to load " + std::string(doc.filename));
+			}
 		}
 	}
 
@@ -123,6 +136,11 @@ void RmlUIManager::Shutdown()
 		return;
 
 	hudModelHandle = {};
+	hudDocument = nullptr;
+	messagesDocument = nullptr;
+	scoreboardDocument = nullptr;
+	consoleDocument = nullptr;
+	menuDocument = nullptr;
 	context = nullptr;
 	Rml::Shutdown();
 
@@ -132,6 +150,65 @@ void RmlUIManager::Shutdown()
 
 	initialized = false;
 	::LogMessage("RmlUi: Shut down");
+}
+
+// --- Document Management ---
+
+Rml::ElementDocument* RmlUIManager::GetDocument(const std::string& name) const
+{
+	if (name == "hud") return hudDocument;
+	if (name == "messages") return messagesDocument;
+	if (name == "scoreboard") return scoreboardDocument;
+	if (name == "console") return consoleDocument;
+	if (name == "menu") return menuDocument;
+	return nullptr;
+}
+
+void RmlUIManager::ShowDocument(const std::string& name)
+{
+	Rml::ElementDocument* doc = GetDocument(name);
+	if (doc)
+		doc->Show();
+}
+
+void RmlUIManager::HideDocument(const std::string& name)
+{
+	Rml::ElementDocument* doc = GetDocument(name);
+	if (doc)
+		doc->Hide();
+}
+
+void RmlUIManager::ToggleDocument(const std::string& name)
+{
+	Rml::ElementDocument* doc = GetDocument(name);
+	if (!doc)
+		return;
+
+	if (doc->IsVisible())
+		doc->Hide();
+	else
+		doc->Show();
+}
+
+bool RmlUIManager::IsDocumentVisible(const std::string& name) const
+{
+	Rml::ElementDocument* doc = GetDocument(name);
+	return doc && doc->IsVisible();
+}
+
+bool RmlUIManager::HasActiveInteractiveDocument() const
+{
+	if (!initialized)
+		return false;
+
+	// Interactive documents are those that need mouse input: menu, console, scoreboard
+	if (menuDocument && menuDocument->IsVisible())
+		return true;
+	if (consoleDocument && consoleDocument->IsVisible())
+		return true;
+	if (scoreboardDocument && scoreboardDocument->IsVisible())
+		return true;
+	return false;
 }
 
 void RmlUIManager::Update()
@@ -411,7 +488,19 @@ void RmlUIManager::SetupDataModel()
 		return;
 	}
 
+	// Register WeaponSlot struct before array
+	if (auto slot_handle = constructor.RegisterStruct<WeaponSlot>())
+	{
+		slot_handle.RegisterMember("occupied", &WeaponSlot::occupied);
+		slot_handle.RegisterMember("selected", &WeaponSlot::selected);
+		slot_handle.RegisterMember("name", &WeaponSlot::name);
+		slot_handle.RegisterMember("ammo", &WeaponSlot::ammo);
+	}
+	constructor.RegisterArray<std::vector<WeaponSlot>>();
+
+	// Scalar bindings
 	constructor.Bind("health", &hudViewModel.health);
+	constructor.Bind("health_max", &hudViewModel.healthMax);
 	constructor.Bind("armor", &hudViewModel.armor);
 	constructor.Bind("ammo", &hudViewModel.ammo);
 	constructor.Bind("weapon_name", &hudViewModel.weaponName);
@@ -419,6 +508,12 @@ void RmlUIManager::SetupDataModel()
 	constructor.Bind("score", &hudViewModel.score);
 	constructor.Bind("deaths", &hudViewModel.deaths);
 	constructor.Bind("has_weapon", &hudViewModel.hasWeapon);
+	constructor.Bind("frag_count", &hudViewModel.fragCount);
+	constructor.Bind("crosshair", &hudViewModel.crosshairIndex);
+	constructor.Bind("hud_mode", &hudViewModel.hudMode);
+
+	// Array binding
+	constructor.Bind("weapon_slots", &hudViewModel.weaponSlots);
 
 	hudModelHandle = constructor.GetModelHandle();
 
@@ -430,54 +525,69 @@ void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
 	if (!initialized || !hudModelHandle)
 		return;
 
-	bool dirty = false;
-
 	if (hudViewModel.health != data.health)
 	{
 		hudViewModel.health = data.health;
 		hudModelHandle.DirtyVariable("health");
-		dirty = true;
+	}
+	if (hudViewModel.healthMax != data.healthMax)
+	{
+		hudViewModel.healthMax = data.healthMax;
+		hudModelHandle.DirtyVariable("health_max");
 	}
 	if (hudViewModel.armor != data.armor)
 	{
 		hudViewModel.armor = data.armor;
 		hudModelHandle.DirtyVariable("armor");
-		dirty = true;
 	}
 	if (hudViewModel.ammo != data.ammo)
 	{
 		hudViewModel.ammo = data.ammo;
 		hudModelHandle.DirtyVariable("ammo");
-		dirty = true;
 	}
 	if (hudViewModel.weaponName != data.weaponName)
 	{
 		hudViewModel.weaponName = data.weaponName;
 		hudModelHandle.DirtyVariable("weapon_name");
-		dirty = true;
 	}
 	if (hudViewModel.playerName != data.playerName)
 	{
 		hudViewModel.playerName = data.playerName;
 		hudModelHandle.DirtyVariable("player_name");
-		dirty = true;
 	}
 	if (hudViewModel.score != data.score)
 	{
 		hudViewModel.score = data.score;
 		hudModelHandle.DirtyVariable("score");
-		dirty = true;
 	}
 	if (hudViewModel.deaths != data.deaths)
 	{
 		hudViewModel.deaths = data.deaths;
 		hudModelHandle.DirtyVariable("deaths");
-		dirty = true;
 	}
 	if (hudViewModel.hasWeapon != data.hasWeapon)
 	{
 		hudViewModel.hasWeapon = data.hasWeapon;
 		hudModelHandle.DirtyVariable("has_weapon");
-		dirty = true;
+	}
+	if (hudViewModel.fragCount != data.fragCount)
+	{
+		hudViewModel.fragCount = data.fragCount;
+		hudModelHandle.DirtyVariable("frag_count");
+	}
+	if (hudViewModel.crosshairIndex != data.crosshairIndex)
+	{
+		hudViewModel.crosshairIndex = data.crosshairIndex;
+		hudModelHandle.DirtyVariable("crosshair");
+	}
+	if (hudViewModel.hudMode != data.hudMode)
+	{
+		hudViewModel.hudMode = data.hudMode;
+		hudModelHandle.DirtyVariable("hud_mode");
+	}
+	if (hudViewModel.weaponSlots != data.weaponSlots)
+	{
+		hudViewModel.weaponSlots = data.weaponSlots;
+		hudModelHandle.DirtyVariable("weapon_slots");
 	}
 }

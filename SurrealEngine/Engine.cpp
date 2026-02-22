@@ -93,6 +93,10 @@ void Engine::Run()
 		(std::filesystem::path(LaunchInfo.gameRootFolder) / "UI").string(),
 		window->GetPixelWidth(), window->GetPixelHeight());
 
+	// Set suppression flags based on which documents loaded
+	if (rmlui->IsInitialized())
+		uiSuppression.bRmlHUD = rmlui->IsDocumentVisible("hud");
+
 	if (engine->LaunchInfo.engineVersion > 219 && !client->StartupFullscreen)
 		viewport->bWindowsMouseAvailable() = true;
 
@@ -159,7 +163,8 @@ void Engine::Run()
 			HUDViewModel hud;
 			try
 			{
-				UPawn* pawn = UObject::TryCast<UPawn>(viewport->Actor());
+				UPlayerPawn* playerPawn = UObject::TryCast<UPlayerPawn>(viewport->Actor());
+				UPawn* pawn = playerPawn ? playerPawn : UObject::TryCast<UPawn>(viewport->Actor());
 				if (pawn)
 				{
 					hud.health = pawn->Health();
@@ -169,21 +174,46 @@ void Engine::Run()
 						hud.weaponName = pawn->Weapon()->ItemName();
 						hud.ammo = pawn->Weapon()->Charge();
 					}
-					// Walk inventory chain for armor
+
+					// Walk inventory chain for armor and weapon slots
+					hud.weaponSlots.resize(10);
 					UInventory* inv = pawn->Inventory();
 					while (inv)
 					{
 						if (inv->bIsAnArmor())
 							hud.armor += inv->Charge();
+
+						// Build weapon slot data
+						UWeapon* weapon = UObject::TryCast<UWeapon>(inv);
+						if (weapon)
+						{
+							int group = weapon->InventoryGroup();
+							if (group >= 0 && group < 10)
+							{
+								hud.weaponSlots[group].occupied = true;
+								hud.weaponSlots[group].name = weapon->ItemName();
+								hud.weaponSlots[group].ammo = weapon->Charge();
+								hud.weaponSlots[group].selected = (weapon == pawn->Weapon());
+							}
+						}
 						inv = inv->Inventory();
 					}
-					// PlayerReplicationInfo (may not exist in older engine versions)
+
+					// HUD actor properties (crosshair, mode)
+					if (playerPawn && playerPawn->myHUD())
+					{
+						hud.crosshairIndex = playerPawn->myHUD()->Crosshair();
+						hud.hudMode = playerPawn->myHUD()->HudMode();
+					}
+
+					// PlayerReplicationInfo
 					UPlayerReplicationInfo* pri = pawn->PlayerReplicationInfo();
 					if (pri)
 					{
 						hud.playerName = pri->PlayerName();
 						hud.score = pri->Score();
 						hud.deaths = pri->Deaths();
+						hud.fragCount = (int)pri->Score();
 					}
 				}
 			}
@@ -1310,6 +1340,41 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		engine->render->Device->Flush(1);
 		return {};
 	}
+	else if (command == "togglehud")
+	{
+		if (rmlui && rmlui->IsInitialized())
+		{
+			rmlui->ToggleDocument("hud");
+			uiSuppression.bRmlHUD = rmlui->IsDocumentVisible("hud");
+			LogMessage("RmlUI HUD " + std::string(uiSuppression.bRmlHUD ? "enabled" : "disabled"));
+		}
+		return {};
+	}
+	else if (command == "togglemenu")
+	{
+		if (rmlui && rmlui->IsInitialized())
+		{
+			rmlui->ToggleDocument("menu");
+			uiSuppression.bRmlMenus = rmlui->IsDocumentVisible("menu");
+		}
+		return {};
+	}
+	else if (command == "reloadui")
+	{
+		if (rmlui)
+		{
+			int w = window ? window->GetPixelWidth() : 800;
+			int h = window ? window->GetPixelHeight() : 600;
+			rmlui->Shutdown();
+			rmlui->Initialize(
+				(std::filesystem::path(LaunchInfo.gameRootFolder) / "UI").string(),
+				w, h);
+			// Restore suppression state based on which documents loaded
+			uiSuppression.bRmlHUD = rmlui->IsDocumentVisible("hud");
+			LogMessage("RmlUI reloaded");
+		}
+		return {};
+	}
 	else
 	{
 		if (!ExecCommand(args))
@@ -1471,7 +1536,11 @@ void Engine::TickWindow()
 {
 	if (window && engine->LaunchInfo.engineVersion > 219)
 	{
-		if (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable())
+		bool wantCursor = (viewport->bShowWindowsMouse() && viewport->bWindowsMouseAvailable());
+		if (rmlui && rmlui->HasActiveInteractiveDocument())
+			wantCursor = true;
+
+		if (wantCursor)
 			window->UnlockCursor();
 		else
 			window->LockCursor();
@@ -1499,7 +1568,9 @@ void Engine::TickWindow()
 
 bool Engine::ShouldRouteInputToUI() const
 {
-	return rmlui && rmlui->IsInitialized() && viewport->bShowWindowsMouse();
+	if (!rmlui || !rmlui->IsInitialized())
+		return false;
+	return viewport->bShowWindowsMouse() || rmlui->HasActiveInteractiveDocument();
 }
 
 void Engine::OnWindowPaint()

@@ -2,10 +2,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 #include "GameWindow.h"
 #include <RmlUi/Core/DataModelHandle.h>
 
-namespace Rml { class Context; namespace Input { enum KeyIdentifier : unsigned char; } }
+namespace Rml { class Context; class ElementDocument; namespace Input { enum KeyIdentifier : unsigned char; } }
 
 class RmlUISystemInterface;
 class RmlUIFileInterface;
@@ -13,9 +14,24 @@ class RmlUIRenderInterface;
 class RenderDevice;
 struct FSceneNode;
 
+struct WeaponSlot
+{
+	bool occupied = false;
+	bool selected = false;
+	std::string name;
+	int ammo = 0;
+
+	bool operator==(const WeaponSlot& o) const
+	{
+		return occupied == o.occupied && selected == o.selected && name == o.name && ammo == o.ammo;
+	}
+	bool operator!=(const WeaponSlot& o) const { return !(*this == o); }
+};
+
 struct HUDViewModel
 {
 	int health = 0;
+	int healthMax = 100;
 	int armor = 0;
 	int ammo = 0;
 	std::string weaponName;
@@ -23,6 +39,10 @@ struct HUDViewModel
 	float score = 0;
 	float deaths = 0;
 	bool hasWeapon = false;
+	int fragCount = 0;
+	int crosshairIndex = 0;
+	int hudMode = 0;
+	std::vector<WeaponSlot> weaponSlots;
 };
 
 class RmlUIManager
@@ -40,6 +60,13 @@ public:
 	void SetViewportSize(int width, int height);
 
 	bool IsInitialized() const { return initialized; }
+
+	// Document management
+	void ShowDocument(const std::string& name);
+	void HideDocument(const std::string& name);
+	void ToggleDocument(const std::string& name);
+	bool IsDocumentVisible(const std::string& name) const;
+	bool HasActiveInteractiveDocument() const;
 
 	// Input routing
 	bool ProcessMouseMove(int x, int y, int keyModifiers);
@@ -60,15 +87,24 @@ public:
 	void UpdateHUDData(const HUDViewModel& data);
 
 private:
+	Rml::ElementDocument* GetDocument(const std::string& name) const;
 	static Rml::Input::KeyIdentifier MapKey(EInputKey key);
 
 	bool initialized = false;
+	std::string uiRoot;
 
 	std::unique_ptr<RmlUISystemInterface> systemInterface;
 	std::unique_ptr<RmlUIFileInterface> fileInterface;
 	std::unique_ptr<RmlUIRenderInterface> renderInterface;
 
 	Rml::Context* context = nullptr;
+
+	// Named documents
+	Rml::ElementDocument* hudDocument = nullptr;
+	Rml::ElementDocument* messagesDocument = nullptr;
+	Rml::ElementDocument* scoreboardDocument = nullptr;
+	Rml::ElementDocument* consoleDocument = nullptr;
+	Rml::ElementDocument* menuDocument = nullptr;
 
 	// Data model
 	HUDViewModel hudViewModel;
