@@ -136,6 +136,7 @@ void RmlUIManager::Shutdown()
 	if (!initialized)
 		return;
 
+	menuViewModel.availableMaps.clear();
 	hudModelHandle = {};
 	messagesModelHandle = {};
 	scoreboardModelHandle = {};
@@ -495,6 +496,15 @@ void RmlUIManager::SetupDataModel()
 	if (!context)
 		return;
 
+	SetupHUDModel();
+	SetupMessagesModel();
+	SetupScoreboardModel();
+	SetupConsoleModel();
+	SetupMenuModel();
+}
+
+void RmlUIManager::SetupHUDModel()
+{
 	Rml::DataModelConstructor constructor = context->CreateDataModel("hud");
 	if (!constructor)
 	{
@@ -502,7 +512,6 @@ void RmlUIManager::SetupDataModel()
 		return;
 	}
 
-	// Register WeaponSlot struct before array
 	if (auto slot_handle = constructor.RegisterStruct<WeaponSlot>())
 	{
 		slot_handle.RegisterMember("occupied", &WeaponSlot::occupied);
@@ -512,7 +521,6 @@ void RmlUIManager::SetupDataModel()
 	}
 	constructor.RegisterArray<std::vector<WeaponSlot>>();
 
-	// Scalar bindings
 	constructor.Bind("health", &hudViewModel.health);
 	constructor.Bind("health_max", &hudViewModel.healthMax);
 	constructor.Bind("armor", &hudViewModel.armor);
@@ -525,15 +533,14 @@ void RmlUIManager::SetupDataModel()
 	constructor.Bind("frag_count", &hudViewModel.fragCount);
 	constructor.Bind("crosshair", &hudViewModel.crosshairIndex);
 	constructor.Bind("hud_mode", &hudViewModel.hudMode);
-
-	// Array binding
 	constructor.Bind("weapon_slots", &hudViewModel.weaponSlots);
 
 	hudModelHandle = constructor.GetModelHandle();
-
 	::LogMessage("RmlUi: HUD data model created");
+}
 
-	// --- Messages data model ---
+void RmlUIManager::SetupMessagesModel()
+{
 	Rml::DataModelConstructor msgConstructor = context->CreateDataModel("messages");
 	if (!msgConstructor)
 	{
@@ -555,10 +562,11 @@ void RmlUIManager::SetupDataModel()
 	msgConstructor.Bind("typed_string", &messagesViewModel.typedString);
 
 	messagesModelHandle = msgConstructor.GetModelHandle();
-
 	::LogMessage("RmlUi: Messages data model created");
+}
 
-	// --- Scoreboard data model ---
+void RmlUIManager::SetupScoreboardModel()
+{
 	Rml::DataModelConstructor sbConstructor = context->CreateDataModel("scoreboard");
 	if (!sbConstructor)
 	{
@@ -583,10 +591,11 @@ void RmlUIManager::SetupDataModel()
 	sbConstructor.Bind("visible", &scoreboardViewModel.visible);
 
 	scoreboardModelHandle = sbConstructor.GetModelHandle();
-
 	::LogMessage("RmlUi: Scoreboard data model created");
+}
 
-	// --- Console data model ---
+void RmlUIManager::SetupConsoleModel()
+{
 	Rml::DataModelConstructor conConstructor = context->CreateDataModel("console");
 	if (!conConstructor)
 	{
@@ -601,10 +610,11 @@ void RmlUIManager::SetupDataModel()
 	conConstructor.Bind("visible", &consoleViewModel.visible);
 
 	consoleModelHandle = conConstructor.GetModelHandle();
-
 	::LogMessage("RmlUi: Console data model created");
+}
 
-	// --- Menu data model ---
+void RmlUIManager::SetupMenuModel()
+{
 	Rml::DataModelConstructor menuConstructor = context->CreateDataModel("menu");
 	if (!menuConstructor)
 	{
@@ -620,15 +630,44 @@ void RmlUIManager::SetupDataModel()
 	}
 	menuConstructor.RegisterArray<std::vector<SaveSlotEntry>>();
 
+	// Screen navigation
 	menuConstructor.Bind("visible", &menuViewModel.visible);
 	menuConstructor.Bind("show_main", &menuViewModel.showMain);
+	menuConstructor.Bind("show_game", &menuViewModel.showGame);
+	menuConstructor.Bind("show_botmatch", &menuViewModel.showBotmatch);
+	menuConstructor.Bind("show_newgame", &menuViewModel.showNewGame);
 	menuConstructor.Bind("show_options", &menuViewModel.showOptions);
+	menuConstructor.Bind("show_audiovideo", &menuViewModel.showAudioVideo);
 	menuConstructor.Bind("show_save", &menuViewModel.showSave);
 	menuConstructor.Bind("show_load", &menuViewModel.showLoad);
 	menuConstructor.Bind("show_quit", &menuViewModel.showQuit);
+
+	// BotMatch
+	menuConstructor.Bind("botmatch_map", &menuViewModel.botmatchMap);
+	menuConstructor.Bind("bot_count", &menuViewModel.botCount);
+	menuConstructor.Bind("bot_skill", &menuViewModel.botSkill);
+	menuConstructor.Bind("skill_label", &menuViewModel.skillLabel);
+	menuConstructor.Bind("available_maps", &menuViewModel.availableMaps);
+
+	// New Game
+	menuConstructor.Bind("difficulty", &menuViewModel.difficulty);
+	menuConstructor.Bind("difficulty_label", &menuViewModel.difficultyLabel);
+
+	// Options
+	menuConstructor.Bind("mouse_sensitivity", &menuViewModel.mouseSensitivity);
+	menuConstructor.Bind("fov", &menuViewModel.fov);
+	menuConstructor.Bind("crosshair", &menuViewModel.crosshair);
+	menuConstructor.Bind("weapon_hand", &menuViewModel.weaponHand);
+	menuConstructor.Bind("weapon_hand_label", &menuViewModel.weaponHandLabel);
+	menuConstructor.Bind("invert_mouse", &menuViewModel.invertMouse);
+	menuConstructor.Bind("always_mouselook", &menuViewModel.alwaysMouseLook);
+
+	// Audio/Video
 	menuConstructor.Bind("music_volume", &menuViewModel.musicVolume);
 	menuConstructor.Bind("sound_volume", &menuViewModel.soundVolume);
 	menuConstructor.Bind("brightness", &menuViewModel.brightness);
+
+	// Save slots
 	menuConstructor.Bind("save_slots", &menuViewModel.saveSlots);
 
 	menuConstructor.BindEventCallback("menu_action",
@@ -639,7 +678,6 @@ void RmlUIManager::SetupDataModel()
 		});
 
 	menuModelHandle = menuConstructor.GetModelHandle();
-
 	::LogMessage("RmlUi: Menu data model created");
 }
 
@@ -800,8 +838,7 @@ void RmlUIManager::UpdateConsoleData(const ConsoleViewModel& data)
 
 bool RmlUIManager::IsMenuOnSubScreen() const
 {
-	return menuViewModel.showOptions || menuViewModel.showSave
-		|| menuViewModel.showLoad || menuViewModel.showQuit;
+	return !menuViewModel.showMain;
 }
 
 void RmlUIManager::UpdateMenuData(const MenuViewModel& data)
@@ -831,11 +868,56 @@ void RmlUIManager::UpdateMenuData(const MenuViewModel& data)
 	}
 }
 
+// --- Table-driven screen navigation ---
+
+struct ScreenDef
+{
+	bool MenuViewModel::*field;
+	const char* varName;
+	const char* screenName;
+};
+
+static const ScreenDef kMenuScreens[] = {
+	{ &MenuViewModel::showMain,       "show_main",       "main" },
+	{ &MenuViewModel::showGame,       "show_game",       "game" },
+	{ &MenuViewModel::showBotmatch,   "show_botmatch",   "botmatch" },
+	{ &MenuViewModel::showNewGame,    "show_newgame",    "newgame" },
+	{ &MenuViewModel::showOptions,    "show_options",    "options" },
+	{ &MenuViewModel::showAudioVideo, "show_audiovideo", "audiovideo" },
+	{ &MenuViewModel::showSave,       "show_save",       "save" },
+	{ &MenuViewModel::showLoad,       "show_load",       "load" },
+	{ &MenuViewModel::showQuit,       "show_quit",       "quit" },
+};
+
+void RmlUIManager::SetMenuScreen(const std::string& screen)
+{
+	if (!menuModelHandle)
+		return;
+
+	for (auto& s : kMenuScreens)
+	{
+		bool was = menuViewModel.*s.field;
+		menuViewModel.*s.field = (screen == s.screenName);
+		if (menuViewModel.*s.field != was)
+			menuModelHandle.DirtyVariable(s.varName);
+	}
+}
+
+void RmlUIManager::ClampAndDirty(int& field, int delta, int lo, int hi, const char* varName)
+{
+	field = std::clamp(field + delta, lo, hi);
+	menuModelHandle.DirtyVariable(varName);
+}
+
+static const char* SkillLabels[] = { "Easy", "Medium", "Hard", "Unreal" };
+static const char* DifficultyLabels[] = { "Easy", "Medium", "Hard", "Unreal" };
+
 void RmlUIManager::HandleMenuAction(const std::string& action)
 {
 	if (!initialized || !menuModelHandle)
 		return;
 
+	// --- Navigation ---
 	if (action == "resume")
 	{
 		HideDocument("menu");
@@ -845,12 +927,30 @@ void RmlUIManager::HandleMenuAction(const std::string& action)
 		{
 			engine->uiSuppression.bRmlMenus = false;
 			engine->SetPause(false);
+			engine->ApplyMenuSettings();
 		}
 		SetMenuScreen("main");
+	}
+	else if (action == "game")
+	{
+		SetMenuScreen("game");
+	}
+	else if (action == "botmatch")
+	{
+		PopulateAvailableMaps();
+		SetMenuScreen("botmatch");
+	}
+	else if (action == "newgame")
+	{
+		SetMenuScreen("newgame");
 	}
 	else if (action == "options")
 	{
 		SetMenuScreen("options");
+	}
+	else if (action == "audiovideo")
+	{
+		SetMenuScreen("audiovideo");
 	}
 	else if (action == "save")
 	{
@@ -873,94 +973,263 @@ void RmlUIManager::HandleMenuAction(const std::string& action)
 	}
 	else if (action == "back")
 	{
-		SetMenuScreen("main");
+		// Sub-screens under "game" go back to game, others to main
+		if (menuViewModel.showBotmatch || menuViewModel.showNewGame
+			|| menuViewModel.showSave || menuViewModel.showLoad)
+			SetMenuScreen("game");
+		else
+			SetMenuScreen("main");
 	}
+
+	// --- BotMatch config ---
+	else if (action == "map_next")
+	{
+		if (!menuViewModel.availableMaps.empty())
+		{
+			menuViewModel.botmatchMapIndex = (menuViewModel.botmatchMapIndex + 1) % (int)menuViewModel.availableMaps.size();
+			menuViewModel.botmatchMap = menuViewModel.availableMaps[menuViewModel.botmatchMapIndex];
+			menuModelHandle.DirtyVariable("botmatch_map");
+		}
+	}
+	else if (action == "map_prev")
+	{
+		if (!menuViewModel.availableMaps.empty())
+		{
+			menuViewModel.botmatchMapIndex = (menuViewModel.botmatchMapIndex - 1 + (int)menuViewModel.availableMaps.size()) % (int)menuViewModel.availableMaps.size();
+			menuViewModel.botmatchMap = menuViewModel.availableMaps[menuViewModel.botmatchMapIndex];
+			menuModelHandle.DirtyVariable("botmatch_map");
+		}
+	}
+	else if (action == "bots_up")
+	{
+		ClampAndDirty(menuViewModel.botCount, 1, 1, 15, "bot_count");
+	}
+	else if (action == "bots_down")
+	{
+		ClampAndDirty(menuViewModel.botCount, -1, 1, 15, "bot_count");
+	}
+	else if (action == "skill_up")
+	{
+		ClampAndDirty(menuViewModel.botSkill, 1, 0, 3, "bot_skill");
+		menuViewModel.skillLabel = SkillLabels[menuViewModel.botSkill];
+		menuModelHandle.DirtyVariable("skill_label");
+	}
+	else if (action == "skill_down")
+	{
+		ClampAndDirty(menuViewModel.botSkill, -1, 0, 3, "bot_skill");
+		menuViewModel.skillLabel = SkillLabels[menuViewModel.botSkill];
+		menuModelHandle.DirtyVariable("skill_label");
+	}
+	else if (action == "start_botmatch")
+	{
+		if (!menuViewModel.availableMaps.empty() && engine)
+		{
+			std::string url = menuViewModel.botmatchMap
+				+ "?Game=UnrealShare.DeathMatchGame"
+				+ "?Difficulty=" + std::to_string(menuViewModel.botSkill);
+			engine->ClientTravel(url, ETravelType::TRAVEL_Absolute, false);
+			HandleMenuAction("resume");
+		}
+	}
+
+	// --- New Game ---
+	else if (action == "diff_up")
+	{
+		ClampAndDirty(menuViewModel.difficulty, 1, 0, 3, "difficulty");
+		menuViewModel.difficultyLabel = DifficultyLabels[menuViewModel.difficulty];
+		menuModelHandle.DirtyVariable("difficulty_label");
+	}
+	else if (action == "diff_down")
+	{
+		ClampAndDirty(menuViewModel.difficulty, -1, 0, 3, "difficulty");
+		menuViewModel.difficultyLabel = DifficultyLabels[menuViewModel.difficulty];
+		menuModelHandle.DirtyVariable("difficulty_label");
+	}
+	else if (action == "start_newgame")
+	{
+		if (engine)
+		{
+			engine->ClientTravel("Vortex2?Difficulty=" + std::to_string(menuViewModel.difficulty),
+				ETravelType::TRAVEL_Absolute, false);
+			HandleMenuAction("resume");
+		}
+	}
+
+	// --- Options (value adjustments — Engine applies on close) ---
+	else if (action == "sens_up")
+	{
+		menuViewModel.mouseSensitivity = std::min(20.0f, menuViewModel.mouseSensitivity + 0.5f);
+		menuModelHandle.DirtyVariable("mouse_sensitivity");
+	}
+	else if (action == "sens_down")
+	{
+		menuViewModel.mouseSensitivity = std::max(0.5f, menuViewModel.mouseSensitivity - 0.5f);
+		menuModelHandle.DirtyVariable("mouse_sensitivity");
+	}
+	else if (action == "fov_up")
+	{
+		ClampAndDirty(menuViewModel.fov, 5, 80, 130, "fov");
+	}
+	else if (action == "fov_down")
+	{
+		ClampAndDirty(menuViewModel.fov, -5, 80, 130, "fov");
+	}
+	else if (action == "crosshair_next")
+	{
+		ClampAndDirty(menuViewModel.crosshair, 1, 0, 6, "crosshair");
+	}
+	else if (action == "crosshair_prev")
+	{
+		ClampAndDirty(menuViewModel.crosshair, -1, 0, 6, "crosshair");
+	}
+	else if (action == "hand_next")
+	{
+		if (menuViewModel.weaponHand < -0.5f)
+			menuViewModel.weaponHand = 0.0f;
+		else if (menuViewModel.weaponHand < 0.5f)
+			menuViewModel.weaponHand = 1.0f;
+		else
+			menuViewModel.weaponHand = -1.0f;
+		menuViewModel.weaponHandLabel = (menuViewModel.weaponHand < -0.5f) ? "Left" : (menuViewModel.weaponHand > 0.5f) ? "Right" : "Center";
+		menuModelHandle.DirtyVariable("weapon_hand");
+		menuModelHandle.DirtyVariable("weapon_hand_label");
+	}
+	else if (action == "toggle_invert")
+	{
+		menuViewModel.invertMouse = !menuViewModel.invertMouse;
+		menuModelHandle.DirtyVariable("invert_mouse");
+	}
+	else if (action == "toggle_mouselook")
+	{
+		menuViewModel.alwaysMouseLook = !menuViewModel.alwaysMouseLook;
+		menuModelHandle.DirtyVariable("always_mouselook");
+	}
+
+	// --- Audio/Video (applied immediately) ---
 	else if (action == "music_up")
 	{
-		menuViewModel.musicVolume = std::min(255, menuViewModel.musicVolume + 16);
-		menuModelHandle.DirtyVariable("music_volume");
+		ClampAndDirty(menuViewModel.musicVolume, 16, 0, 255, "music_volume");
+		if (engine) engine->ApplyMenuSettings();
 	}
 	else if (action == "music_down")
 	{
-		menuViewModel.musicVolume = std::max(0, menuViewModel.musicVolume - 16);
-		menuModelHandle.DirtyVariable("music_volume");
+		ClampAndDirty(menuViewModel.musicVolume, -16, 0, 255, "music_volume");
+		if (engine) engine->ApplyMenuSettings();
 	}
 	else if (action == "sound_up")
 	{
-		menuViewModel.soundVolume = std::min(255, menuViewModel.soundVolume + 16);
-		menuModelHandle.DirtyVariable("sound_volume");
+		ClampAndDirty(menuViewModel.soundVolume, 16, 0, 255, "sound_volume");
+		if (engine) engine->ApplyMenuSettings();
 	}
 	else if (action == "sound_down")
 	{
-		menuViewModel.soundVolume = std::max(0, menuViewModel.soundVolume - 16);
-		menuModelHandle.DirtyVariable("sound_volume");
+		ClampAndDirty(menuViewModel.soundVolume, -16, 0, 255, "sound_volume");
+		if (engine) engine->ApplyMenuSettings();
 	}
 	else if (action == "bright_up")
 	{
-		menuViewModel.brightness = std::min(10, menuViewModel.brightness + 1);
-		menuModelHandle.DirtyVariable("brightness");
+		ClampAndDirty(menuViewModel.brightness, 1, 1, 10, "brightness");
+		if (engine) engine->ApplyMenuSettings();
 	}
 	else if (action == "bright_down")
 	{
-		menuViewModel.brightness = std::max(1, menuViewModel.brightness - 1);
-		menuModelHandle.DirtyVariable("brightness");
+		ClampAndDirty(menuViewModel.brightness, -1, 1, 10, "brightness");
+		if (engine) engine->ApplyMenuSettings();
 	}
-	else if (action.substr(0, 5) == "save_")
+	else if (action == "toggle_fullscreen")
 	{
-		int slot = std::stoi(action.substr(5));
 		if (engine)
 		{
-			engine->SaveGameInfo.SaveGameSlot = slot;
-			engine->SaveGameInfo.SaveGameDescription = "Save " + std::to_string(slot);
+			BitfieldBool found;
+			engine->ConsoleCommand(nullptr, "togglefullscreen", found);
 		}
-		// Return to main menu after save
-		SetMenuScreen("main");
 	}
-	else if (action.substr(0, 5) == "load_")
+
+	// --- Save/Load slots ---
+	else if (action.size() > 5 && action.substr(0, 5) == "save_")
 	{
-		int slot = std::stoi(action.substr(5));
-		if (engine)
+		try
 		{
-			// Build a travel URL with load option
-			std::string mapName = engine->LevelInfo ? engine->LevelInfo->URL.Map : "";
-			if (!mapName.empty())
+			int slot = std::stoi(action.substr(5));
+			if (engine)
 			{
-				engine->ClientTravel(mapName + "?load=" + std::to_string(slot),
-					ETravelType::TRAVEL_Absolute, false);
+				engine->SaveGameInfo.SaveGameSlot = slot;
+				engine->SaveGameInfo.SaveGameDescription = "Save " + std::to_string(slot);
 			}
+			SetMenuScreen("game");
 		}
-		// Close menu
-		HandleMenuAction("resume");
+		catch (const std::exception&) {}
+	}
+	else if (action.size() > 5 && action.substr(0, 5) == "load_")
+	{
+		try
+		{
+			int slot = std::stoi(action.substr(5));
+			if (engine)
+			{
+				std::string mapName = engine->LevelInfo ? engine->LevelInfo->URL.Map : "";
+				if (!mapName.empty())
+				{
+					engine->ClientTravel(mapName + "?load=" + std::to_string(slot),
+						ETravelType::TRAVEL_Absolute, false);
+				}
+			}
+			HandleMenuAction("resume");
+		}
+		catch (const std::exception&) {}
 	}
 }
 
-void RmlUIManager::SetMenuScreen(const std::string& screen)
+void RmlUIManager::DirtyAllMenuSettings()
 {
 	if (!menuModelHandle)
 		return;
 
-	bool wasMain = menuViewModel.showMain;
-	bool wasOptions = menuViewModel.showOptions;
-	bool wasSave = menuViewModel.showSave;
-	bool wasLoad = menuViewModel.showLoad;
-	bool wasQuit = menuViewModel.showQuit;
+	menuModelHandle.DirtyVariable("mouse_sensitivity");
+	menuModelHandle.DirtyVariable("fov");
+	menuModelHandle.DirtyVariable("crosshair");
+	menuModelHandle.DirtyVariable("weapon_hand");
+	menuModelHandle.DirtyVariable("weapon_hand_label");
+	menuModelHandle.DirtyVariable("invert_mouse");
+	menuModelHandle.DirtyVariable("always_mouselook");
+	menuModelHandle.DirtyVariable("music_volume");
+	menuModelHandle.DirtyVariable("sound_volume");
+	menuModelHandle.DirtyVariable("brightness");
+}
 
-	menuViewModel.showMain = (screen == "main");
-	menuViewModel.showOptions = (screen == "options");
-	menuViewModel.showSave = (screen == "save");
-	menuViewModel.showLoad = (screen == "load");
-	menuViewModel.showQuit = (screen == "quit");
+void RmlUIManager::PopulateAvailableMaps()
+{
+	if (!menuViewModel.availableMaps.empty())
+		return;  // cached
 
-	if (menuViewModel.showMain != wasMain)
-		menuModelHandle.DirtyVariable("show_main");
-	if (menuViewModel.showOptions != wasOptions)
-		menuModelHandle.DirtyVariable("show_options");
-	if (menuViewModel.showSave != wasSave)
-		menuModelHandle.DirtyVariable("show_save");
-	if (menuViewModel.showLoad != wasLoad)
-		menuModelHandle.DirtyVariable("show_load");
-	if (menuViewModel.showQuit != wasQuit)
-		menuModelHandle.DirtyVariable("show_quit");
+	if (!engine || !engine->packages)
+		return;
+
+	for (auto& map : engine->packages->GetMaps())
+	{
+		std::string stem = std::filesystem::path(map).stem().string();
+		// Match both "DM-" (UT99) and "Dm" (Unreal Gold) prefixes
+		if (stem.size() >= 3
+			&& (stem[0] == 'D' || stem[0] == 'd')
+			&& (stem[1] == 'M' || stem[1] == 'm')
+			&& (stem[2] == '-' || std::isupper(stem[2])))
+		{
+			menuViewModel.availableMaps.push_back(stem);
+		}
+	}
+	std::sort(menuViewModel.availableMaps.begin(), menuViewModel.availableMaps.end());
+
+	if (!menuViewModel.availableMaps.empty())
+	{
+		menuViewModel.botmatchMapIndex = 0;
+		menuViewModel.botmatchMap = menuViewModel.availableMaps[0];
+	}
+	else
+	{
+		menuViewModel.botmatchMap = "(no maps found)";
+	}
+	menuModelHandle.DirtyVariable("available_maps");
+	menuModelHandle.DirtyVariable("botmatch_map");
 }
 
 void RmlUIManager::PopulateSaveSlots()

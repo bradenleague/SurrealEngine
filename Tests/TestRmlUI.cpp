@@ -870,6 +870,206 @@ static void TestMenuScreenNavigation()
 	std::cout << "OK\n";
 }
 
+// ---- Phase 8b Tests ----
+
+static void TestClampAndDirtyBounds()
+{
+	std::cout << "  Phase8b: ClampAndDirty respects bounds... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	auto& vm = mgr.GetMenuViewModel();
+
+	// Music volume: try to exceed max
+	vm.musicVolume = 250;
+	mgr.HandleMenuAction("music_up");
+	assert(vm.musicVolume == 255);  // clamped at max
+
+	// Try to exceed max again
+	mgr.HandleMenuAction("music_up");
+	assert(vm.musicVolume == 255);  // stays at max
+
+	// Music volume: try to go below min
+	vm.musicVolume = 10;
+	mgr.HandleMenuAction("music_down");
+	assert(vm.musicVolume >= 0);
+
+	// Bot count: clamp at 1-15
+	vm.botCount = 1;
+	mgr.HandleMenuAction("bots_down");
+	assert(vm.botCount == 1);  // clamped at min
+
+	vm.botCount = 15;
+	mgr.HandleMenuAction("bots_up");
+	assert(vm.botCount == 15);  // clamped at max
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestBotmatchMapPopulation()
+{
+	std::cout << "  Phase8b: BotMatch map population (no engine)... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// No engine available in test — PopulateAvailableMaps should handle gracefully
+	mgr.HandleMenuAction("botmatch");
+	auto& vm = mgr.GetMenuViewModel();
+
+	// Without engine, maps should be empty and fallback message set
+	assert(vm.availableMaps.empty());
+	assert(vm.botmatchMap == "(no maps found)");
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestBotmatchMapCycling()
+{
+	std::cout << "  Phase8b: BotMatch map cycling wraps correctly... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	auto& vm = mgr.GetMenuViewModel();
+	// Manually populate maps to test cycling
+	vm.availableMaps = { "DM-Deck16", "DM-Morpheus", "DM-Turbine" };
+	vm.botmatchMapIndex = 0;
+	vm.botmatchMap = vm.availableMaps[0];
+
+	// Cycle forward
+	mgr.HandleMenuAction("map_next");
+	assert(vm.botmatchMapIndex == 1);
+	assert(vm.botmatchMap == "DM-Morpheus");
+
+	mgr.HandleMenuAction("map_next");
+	assert(vm.botmatchMapIndex == 2);
+	assert(vm.botmatchMap == "DM-Turbine");
+
+	// Wrap to start
+	mgr.HandleMenuAction("map_next");
+	assert(vm.botmatchMapIndex == 0);
+	assert(vm.botmatchMap == "DM-Deck16");
+
+	// Wrap backwards from start
+	mgr.HandleMenuAction("map_prev");
+	assert(vm.botmatchMapIndex == 2);
+	assert(vm.botmatchMap == "DM-Turbine");
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestBotmatchEmptyMaps()
+{
+	std::cout << "  Phase8b: BotMatch empty maps guard... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	auto& vm = mgr.GetMenuViewModel();
+	// Ensure maps are empty
+	vm.availableMaps.clear();
+	vm.botmatchMap = "(no maps found)";
+
+	// Cycling on empty list should not crash
+	mgr.HandleMenuAction("map_next");
+	mgr.HandleMenuAction("map_prev");
+	assert(vm.botmatchMap == "(no maps found)");
+
+	// start_botmatch should be a no-op with empty maps
+	mgr.HandleMenuAction("start_botmatch");
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestMenuScreenNavigationExpanded()
+{
+	std::cout << "  Phase8b: Expanded screen navigation (9 screens)... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	const char* screens[] = {
+		"main", "game", "botmatch", "newgame", "options",
+		"audiovideo", "save", "load", "quit"
+	};
+
+	auto& vm = mgr.GetMenuViewModel();
+	for (auto screen : screens)
+	{
+		mgr.HandleMenuAction(screen);
+		mgr.Update();
+		if (std::string(screen) == "main")
+			assert(!mgr.IsMenuOnSubScreen());
+		else
+			assert(mgr.IsMenuOnSubScreen());
+	}
+
+	// Verify back from game sub-screens returns to game
+	mgr.HandleMenuAction("botmatch");
+	mgr.HandleMenuAction("back");
+	assert(vm.showGame);
+
+	mgr.HandleMenuAction("newgame");
+	mgr.HandleMenuAction("back");
+	assert(vm.showGame);
+
+	// Verify back from top-level sub-screens returns to main
+	mgr.HandleMenuAction("options");
+	mgr.HandleMenuAction("back");
+	assert(vm.showMain);
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestHandleMenuActionUnknown()
+{
+	std::cout << "  Phase8b: Unknown action does not crash... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// These should all be no-ops, not crashes
+	mgr.HandleMenuAction("nonexistent_action");
+	mgr.HandleMenuAction("");
+	mgr.HandleMenuAction("save_notanumber");
+	mgr.HandleMenuAction("load_notanumber");
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -935,6 +1135,14 @@ int main()
 	TestUpdateMenuData();
 	TestUpdateMenuDataEmpty();
 	TestMenuScreenNavigation();
+
+	std::cout << "\nPhase 8b (Menu Enhancement):\n";
+	TestClampAndDirtyBounds();
+	TestBotmatchMapPopulation();
+	TestBotmatchMapCycling();
+	TestBotmatchEmptyMaps();
+	TestMenuScreenNavigationExpanded();
+	TestHandleMenuActionUnknown();
 
 	CleanupTestDir();
 

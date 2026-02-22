@@ -114,14 +114,44 @@ struct SaveSlotEntry
 struct MenuViewModel
 {
 	bool visible = false;
+
+	// Screen navigation (only one true at a time)
 	bool showMain = true;
+	bool showGame = false;
+	bool showBotmatch = false;
+	bool showNewGame = false;
 	bool showOptions = false;
+	bool showAudioVideo = false;
 	bool showSave = false;
 	bool showLoad = false;
 	bool showQuit = false;
+
+	// BotMatch config
+	std::string botmatchMap;
+	int botmatchMapIndex = 0;
+	int botCount = 4;               // 1-15
+	int botSkill = 1;               // 0-3 (Easy/Medium/Hard/Unreal)
+	std::string skillLabel = "Medium";
+	std::vector<std::string> availableMaps;
+
+	// New Game
+	int difficulty = 1;             // 0-3
+	std::string difficultyLabel = "Medium";
+
+	// Options (populated by Engine::ReadMenuSettings)
+	float mouseSensitivity = 3.0f;
+	int fov = 90;
+	int crosshair = 0;             // 0-6
+	float weaponHand = 1.0f;       // UE1 native: -1=left, 0=center, 1=right
+	std::string weaponHandLabel = "Right";
+	bool invertMouse = false;
+	bool alwaysMouseLook = true;
+
+	// Audio/Video
 	int musicVolume = 128;    // 0-255 (UE1 range)
 	int soundVolume = 128;    // 0-255
 	int brightness = 5;       // 1-10
+
 	std::vector<SaveSlotEntry> saveSlots;
 };
 
@@ -173,6 +203,10 @@ public:
 	void HandleMenuAction(const std::string& action);
 	bool IsMenuOnSubScreen() const;
 
+	MenuViewModel& GetMenuViewModel() { return menuViewModel; }
+	const MenuViewModel& GetMenuViewModel() const { return menuViewModel; }
+	void DirtyAllMenuSettings();
+
 private:
 	Rml::ElementDocument* GetDocument(const std::string& name) const;
 	static Rml::Input::KeyIdentifier MapKey(EInputKey key);
@@ -209,6 +243,14 @@ private:
 	MenuViewModel menuViewModel;
 	Rml::DataModelHandle menuModelHandle;
 
+	void SetupHUDModel();
+	void SetupMessagesModel();
+	void SetupScoreboardModel();
+	void SetupConsoleModel();
+	void SetupMenuModel();
+
 	void SetMenuScreen(const std::string& screen);
+	void ClampAndDirty(int& field, int delta, int lo, int hi, const char* varName);
 	void PopulateSaveSlots();
+	void PopulateAvailableMaps();
 };

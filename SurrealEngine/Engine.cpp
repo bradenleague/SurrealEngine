@@ -1845,7 +1845,7 @@ void Engine::OnWindowKeyDown(EInputKey key)
 		{
 			if (rmlui->IsDocumentVisible("menu") && rmlui->IsMenuOnSubScreen())
 			{
-				// Navigate back to main menu screen instead of closing
+				// Navigate back instead of closing
 				rmlui->HandleMenuAction("back");
 			}
 			else
@@ -1853,6 +1853,10 @@ void Engine::OnWindowKeyDown(EInputKey key)
 				rmlui->ToggleDocument("menu");
 				uiSuppression.bRmlMenus = rmlui->IsDocumentVisible("menu");
 				SetPause(uiSuppression.bRmlMenus);
+				if (uiSuppression.bRmlMenus)
+					ReadMenuSettings();
+				else
+					ApplyMenuSettings();
 			}
 		}
 		return;
@@ -2066,6 +2070,72 @@ void Engine::InputCommand(const std::string& commands, EInputKey key, int delta)
 			}
 		}
 	}
+}
+
+void Engine::ReadMenuSettings()
+{
+	if (!rmlui || !rmlui->IsInitialized())
+		return;
+
+	auto& vm = rmlui->GetMenuViewModel();
+
+	try
+	{
+		UPlayerPawn* playerPawn = UObject::TryCast<UPlayerPawn>(viewport->Actor());
+		if (playerPawn)
+		{
+			vm.mouseSensitivity = playerPawn->MouseSensitivity();
+			vm.fov = (int)playerPawn->FovAngle();
+			vm.weaponHand = playerPawn->Handedness();
+			vm.invertMouse = playerPawn->bInvertMouse();
+			vm.alwaysMouseLook = playerPawn->bAlwaysMouseLook();
+			if (playerPawn->myHUD())
+				vm.crosshair = playerPawn->myHUD()->Crosshair();
+		}
+	}
+	catch (const std::exception&)
+	{
+		// Some properties may not exist in older game versions
+	}
+
+	vm.weaponHandLabel = (vm.weaponHand < -0.5f) ? "Left" : (vm.weaponHand > 0.5f) ? "Right" : "Center";
+	vm.musicVolume = audiodev->MusicVolume;
+	vm.soundVolume = audiodev->SoundVolume;
+	vm.brightness = std::clamp((int)(client->Brightness * 10.0f), 1, 10);
+
+	rmlui->DirtyAllMenuSettings();
+}
+
+void Engine::ApplyMenuSettings()
+{
+	if (!rmlui || !rmlui->IsInitialized())
+		return;
+
+	const auto& vm = rmlui->GetMenuViewModel();
+
+	try
+	{
+		UPlayerPawn* playerPawn = UObject::TryCast<UPlayerPawn>(viewport->Actor());
+		if (playerPawn)
+		{
+			playerPawn->MouseSensitivity() = vm.mouseSensitivity;
+			playerPawn->FovAngle() = (float)vm.fov;
+			playerPawn->Handedness() = vm.weaponHand;
+			playerPawn->bInvertMouse() = vm.invertMouse;
+			playerPawn->bAlwaysMouseLook() = vm.alwaysMouseLook;
+			if (playerPawn->myHUD())
+				playerPawn->myHUD()->Crosshair() = vm.crosshair;
+		}
+	}
+	catch (const std::exception&)
+	{
+		// Some properties may not exist in older game versions
+	}
+
+	// Audio/brightness — write directly to subsystem fields
+	audiodev->SetPropertyFromString("MusicVolume", std::to_string(vm.musicVolume));
+	audiodev->SetPropertyFromString("SoundVolume", std::to_string(vm.soundVolume));
+	client->SetPropertyFromString("Brightness", std::to_string(vm.brightness / 10.0f));
 }
 
 void Engine::SetPause(bool value)

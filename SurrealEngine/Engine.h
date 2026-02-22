@@ -128,6 +128,9 @@ public:
 
 	void SetPause(bool value);
 
+	void ReadMenuSettings();
+	void ApplyMenuSettings();
+
 	UZoneInfo* GetZoneActor(int zoneIndex);
 
 	std::string ParseClassName(std::string className);
