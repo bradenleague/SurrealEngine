@@ -10,7 +10,7 @@ RenderSubsystem::DrawGame(float levelTimeElapsed)
   ├─ PreRender()             — CallEvent(console/actor, PreRender, {Canvas})
   ├─ DrawScene()             — 3D BSP world + actors
   ├─ RenderOverlays()        — CallEvent(actor, RenderOverlays, {Canvas})
-  ├─ DrawRootWindow()        — UWindow tree (if dxRootWindow exists)
+  ├─ DrawRootWindow()        — UWindow tree (skipped when all RmlUI docs loaded)
   ├─ PostRender()            — CallEvent(actor/console, PostRender, {Canvas}) [gated by UISuppressionFlags]
   └─ RmlUI Render            — RmlUi overlay (if initialized, via DrawUITriangles)
 ```

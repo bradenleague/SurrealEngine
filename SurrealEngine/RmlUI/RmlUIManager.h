@@ -147,6 +147,7 @@ public:
 	void ToggleDocument(const std::string& name);
 	bool IsDocumentVisible(const std::string& name) const;
 	bool HasActiveInteractiveDocument() const;
+	bool HasAllDocuments() const;
 
 	// Input routing
 	bool ProcessMouseMove(int x, int y, int keyModifiers);

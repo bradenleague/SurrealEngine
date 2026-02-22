@@ -46,7 +46,8 @@ void RenderSubsystem::DrawGame(float levelTimeElapsed)
 		Device->EndFlash();
 	}
 
-	if (engine->dxRootWindow)
+	// Skip UWindow rendering when all RmlUI surfaces are loaded
+	if (engine->dxRootWindow && !(engine->rmlui && engine->rmlui->HasAllDocuments()))
 	{
 		DrawRootWindow();
 	}

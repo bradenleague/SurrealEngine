@@ -418,6 +418,24 @@ static void TestHasActiveInteractiveDocument()
 	std::cout << "OK\n";
 }
 
+static void TestHasAllDocuments()
+{
+	std::cout << "  MultiDoc: HasAllDocuments with no docs loaded... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// No documents in test dir — should return false
+	assert(!mgr.HasAllDocuments());
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 // ---- Data Model Tests ----
 
 static void TestUpdateHUDDataNoChange()
@@ -891,6 +909,7 @@ int main()
 	TestDocumentManagementUninitialized();
 	TestDocumentManagementInvalidName();
 	TestHasActiveInteractiveDocument();
+	TestHasAllDocuments();
 
 	std::cout << "\nHUD Data Model:\n";
 	TestUpdateHUDDataNoChange();

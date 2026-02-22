@@ -1709,6 +1709,13 @@ bool Engine::ShouldRouteInputToUI() const
 {
 	if (!rmlui || !rmlui->IsInitialized())
 		return false;
+
+	// When all RmlUI documents are loaded, UWindow is retired — only
+	// route input to RmlUI when an interactive document is active.
+	// Otherwise, also check bShowWindowsMouse for legacy UWindow input.
+	if (rmlui->HasAllDocuments())
+		return rmlui->HasActiveInteractiveDocument();
+
 	return viewport->bShowWindowsMouse() || rmlui->HasActiveInteractiveDocument();
 }
 

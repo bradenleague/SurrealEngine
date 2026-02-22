@@ -216,6 +216,15 @@ bool RmlUIManager::HasActiveInteractiveDocument() const
 	return false;
 }
 
+bool RmlUIManager::HasAllDocuments() const
+{
+	if (!initialized)
+		return false;
+
+	return hudDocument && messagesDocument && scoreboardDocument
+		&& consoleDocument && menuDocument;
+}
+
 void RmlUIManager::Update()
 {
 	if (!initialized || !context)
