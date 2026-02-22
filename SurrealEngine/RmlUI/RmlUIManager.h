@@ -66,6 +66,31 @@ struct MessagesViewModel
 	std::string typedString;
 };
 
+struct PlayerEntry
+{
+	std::string name;
+	int score = 0;
+	int deaths = 0;
+	int ping = 0;
+	int team = 255;  // 255 = no team
+	bool isBot = false;
+
+	bool operator==(const PlayerEntry& o) const
+	{
+		return name == o.name && score == o.score && deaths == o.deaths
+			&& ping == o.ping && team == o.team && isBot == o.isBot;
+	}
+	bool operator!=(const PlayerEntry& o) const { return !(*this == o); }
+};
+
+struct ScoreboardViewModel
+{
+	std::vector<PlayerEntry> players;
+	std::string mapName;
+	std::string gameName;
+	bool visible = false;
+};
+
 class RmlUIManager
 {
 public:
@@ -107,6 +132,7 @@ public:
 	void SetupDataModel();
 	void UpdateHUDData(const HUDViewModel& data);
 	void UpdateMessagesData(const MessagesViewModel& data);
+	void UpdateScoreboardData(const ScoreboardViewModel& data);
 
 private:
 	Rml::ElementDocument* GetDocument(const std::string& name) const;
@@ -134,4 +160,7 @@ private:
 
 	MessagesViewModel messagesViewModel;
 	Rml::DataModelHandle messagesModelHandle;
+
+	ScoreboardViewModel scoreboardViewModel;
+	Rml::DataModelHandle scoreboardModelHandle;
 };

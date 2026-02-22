@@ -26,6 +26,7 @@
 #include "VM/ScriptCall.h"
 #include "Video/VideoPlayer.h"
 #include "RmlUI/RmlUIManager.h"
+#include <algorithm>
 #include <chrono>
 #include <set>
 #include <filesystem>
@@ -273,6 +274,46 @@ void Engine::Run()
 				// Console properties may not exist in all game versions
 			}
 			rmlui->UpdateMessagesData(msgs);
+
+			// Extract scoreboard data
+			ScoreboardViewModel sb;
+			try
+			{
+				UPlayerPawn* pp = UObject::TryCast<UPlayerPawn>(viewport->Actor());
+				if (pp)
+					sb.visible = pp->bShowScores();
+
+				if (sb.visible && Level)
+				{
+					sb.mapName = LevelInfo ? LevelInfo->Title() : "";
+					sb.gameName = GameInfo ? GameInfo->Class->Name.ToString() : "";
+
+					for (UActor* actor : Level->Actors)
+					{
+						UPlayerReplicationInfo* pri = UObject::TryCast<UPlayerReplicationInfo>(actor);
+						if (!pri || pri->bIsSpectator())
+							continue;
+
+						PlayerEntry pe;
+						pe.name = pri->PlayerName();
+						pe.score = (int)pri->Score();
+						pe.deaths = (int)pri->Deaths();
+						pe.ping = pri->Ping();
+						pe.team = pri->Team();
+						pe.isBot = pri->bIsABot();
+						sb.players.push_back(pe);
+					}
+
+					// Sort by score descending
+					std::sort(sb.players.begin(), sb.players.end(),
+						[](const PlayerEntry& a, const PlayerEntry& b) { return a.score > b.score; });
+				}
+			}
+			catch (const std::exception&)
+			{
+				// Scoreboard properties may not exist in all game versions
+			}
+			rmlui->UpdateScoreboardData(sb);
 		}
 
 		if (rmlui) rmlui->Update();

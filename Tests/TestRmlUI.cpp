@@ -642,6 +642,74 @@ static void TestUpdateMessagesDataEmpty()
 	std::cout << "OK\n";
 }
 
+// ---- Scoreboard Data Model Tests ----
+
+static void TestUpdateScoreboardData()
+{
+	std::cout << "  DataModel: UpdateScoreboardData with players... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	ScoreboardViewModel sb;
+	sb.visible = true;
+	sb.mapName = "DM-Morpheus";
+	sb.gameName = "DeathMatchPlus";
+
+	PlayerEntry p1;
+	p1.name = "Player1";
+	p1.score = 15;
+	p1.deaths = 3;
+	p1.ping = 42;
+	sb.players.push_back(p1);
+
+	PlayerEntry p2;
+	p2.name = "Bot1";
+	p2.score = 10;
+	p2.deaths = 5;
+	p2.ping = 0;
+	p2.isBot = true;
+	sb.players.push_back(p2);
+
+	mgr.UpdateScoreboardData(sb);
+
+	// Score changes
+	sb.players[0].score = 16;
+	mgr.UpdateScoreboardData(sb);
+
+	// Hide scoreboard
+	sb.visible = false;
+	mgr.UpdateScoreboardData(sb);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateScoreboardDataEmpty()
+{
+	std::cout << "  DataModel: UpdateScoreboardData empty... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	ScoreboardViewModel sb;
+	mgr.UpdateScoreboardData(sb);
+	mgr.UpdateScoreboardData(sb);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -693,6 +761,10 @@ int main()
 	TestUpdateMessagesData();
 	TestUpdateMessagesDataTyping();
 	TestUpdateMessagesDataEmpty();
+
+	std::cout << "\nScoreboard Data Model:\n";
+	TestUpdateScoreboardData();
+	TestUpdateScoreboardDataEmpty();
 
 	CleanupTestDir();
 

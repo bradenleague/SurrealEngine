@@ -137,6 +137,7 @@ void RmlUIManager::Shutdown()
 
 	hudModelHandle = {};
 	messagesModelHandle = {};
+	scoreboardModelHandle = {};
 	hudDocument = nullptr;
 	messagesDocument = nullptr;
 	scoreboardDocument = nullptr;
@@ -544,6 +545,34 @@ void RmlUIManager::SetupDataModel()
 	messagesModelHandle = msgConstructor.GetModelHandle();
 
 	::LogMessage("RmlUi: Messages data model created");
+
+	// --- Scoreboard data model ---
+	Rml::DataModelConstructor sbConstructor = context->CreateDataModel("scoreboard");
+	if (!sbConstructor)
+	{
+		::LogMessage("RmlUi WARNING: Failed to create scoreboard data model");
+		return;
+	}
+
+	if (auto player_handle = sbConstructor.RegisterStruct<PlayerEntry>())
+	{
+		player_handle.RegisterMember("name", &PlayerEntry::name);
+		player_handle.RegisterMember("score", &PlayerEntry::score);
+		player_handle.RegisterMember("deaths", &PlayerEntry::deaths);
+		player_handle.RegisterMember("ping", &PlayerEntry::ping);
+		player_handle.RegisterMember("team", &PlayerEntry::team);
+		player_handle.RegisterMember("is_bot", &PlayerEntry::isBot);
+	}
+	sbConstructor.RegisterArray<std::vector<PlayerEntry>>();
+
+	sbConstructor.Bind("players", &scoreboardViewModel.players);
+	sbConstructor.Bind("map_name", &scoreboardViewModel.mapName);
+	sbConstructor.Bind("game_name", &scoreboardViewModel.gameName);
+	sbConstructor.Bind("visible", &scoreboardViewModel.visible);
+
+	scoreboardModelHandle = sbConstructor.GetModelHandle();
+
+	::LogMessage("RmlUi: Scoreboard data model created");
 }
 
 void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
@@ -637,5 +666,38 @@ void RmlUIManager::UpdateMessagesData(const MessagesViewModel& data)
 	{
 		messagesViewModel.typedString = data.typedString;
 		messagesModelHandle.DirtyVariable("typed_string");
+	}
+}
+
+void RmlUIManager::UpdateScoreboardData(const ScoreboardViewModel& data)
+{
+	if (!initialized || !scoreboardModelHandle)
+		return;
+
+	if (scoreboardViewModel.players != data.players)
+	{
+		scoreboardViewModel.players = data.players;
+		scoreboardModelHandle.DirtyVariable("players");
+	}
+	if (scoreboardViewModel.mapName != data.mapName)
+	{
+		scoreboardViewModel.mapName = data.mapName;
+		scoreboardModelHandle.DirtyVariable("map_name");
+	}
+	if (scoreboardViewModel.gameName != data.gameName)
+	{
+		scoreboardViewModel.gameName = data.gameName;
+		scoreboardModelHandle.DirtyVariable("game_name");
+	}
+	if (scoreboardViewModel.visible != data.visible)
+	{
+		scoreboardViewModel.visible = data.visible;
+		scoreboardModelHandle.DirtyVariable("visible");
+
+		// Show/hide scoreboard document based on visibility
+		if (data.visible)
+			ShowDocument("scoreboard");
+		else
+			HideDocument("scoreboard");
 	}
 }
