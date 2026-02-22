@@ -764,6 +764,94 @@ static void TestUpdateConsoleDataEmpty()
 	std::cout << "OK\n";
 }
 
+static void TestUpdateMenuData()
+{
+	std::cout << "  DataModel: UpdateMenuData with save slots... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	MenuViewModel menu;
+	menu.musicVolume = 200;
+	menu.soundVolume = 100;
+	menu.brightness = 7;
+	for (int i = 0; i < 10; i++)
+	{
+		SaveSlotEntry slot;
+		slot.index = i;
+		slot.description = "Slot " + std::to_string(i);
+		slot.hasData = (i < 3);
+		menu.saveSlots.push_back(slot);
+	}
+	mgr.UpdateMenuData(menu);
+
+	// Update with changed settings
+	menu.musicVolume = 128;
+	mgr.UpdateMenuData(menu);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateMenuDataEmpty()
+{
+	std::cout << "  DataModel: UpdateMenuData empty... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	MenuViewModel menu;
+	mgr.UpdateMenuData(menu);
+	mgr.UpdateMenuData(menu);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestMenuScreenNavigation()
+{
+	std::cout << "  DataModel: Menu screen navigation via HandleMenuAction... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// Show the menu document first
+	mgr.ShowDocument("menu");
+
+	// Toggle to options screen
+	mgr.HandleMenuAction("options");
+	mgr.Update();
+
+	// Go back to main
+	mgr.HandleMenuAction("back");
+	mgr.Update();
+
+	// Navigate to quit confirm
+	mgr.HandleMenuAction("quit");
+	mgr.Update();
+
+	// Back to main
+	mgr.HandleMenuAction("back");
+	mgr.Update();
+
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -823,6 +911,11 @@ int main()
 	std::cout << "\nConsole Data Model:\n";
 	TestUpdateConsoleData();
 	TestUpdateConsoleDataEmpty();
+
+	std::cout << "\nMenu Data Model:\n";
+	TestUpdateMenuData();
+	TestUpdateMenuDataEmpty();
+	TestMenuScreenNavigation();
 
 	CleanupTestDir();
 

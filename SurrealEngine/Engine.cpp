@@ -357,7 +357,11 @@ void Engine::Run()
 
 		if (rmlui) rmlui->Update();
 
-		SetPause(!LevelInfo->Pauser().empty());
+		// Keep game paused while RmlUI menu is active
+		if (uiSuppression.bRmlMenus)
+			SetPause(true);
+		else
+			SetPause(!LevelInfo->Pauser().empty());
 
 		// Do NOT pause this Tick event otherwise some messages will stay on screen forever.
 		CallEvent(console, EventName::Tick, { ExpressionValue::FloatValue(levelElapsed) });
@@ -1487,6 +1491,9 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 		{
 			rmlui->ToggleDocument("menu");
 			uiSuppression.bRmlMenus = rmlui->IsDocumentVisible("menu");
+			SetPause(uiSuppression.bRmlMenus);
+			if (!uiSuppression.bRmlMenus)
+				rmlui->HandleMenuAction("back");  // Reset to main screen
 		}
 		return {};
 	}
@@ -1821,6 +1828,26 @@ void Engine::OnWindowKeyDown(EInputKey key)
 	{
 		if (key == EInputKey::IK_Escape)
 			skipAvi = true;
+		return;
+	}
+
+	// Escape toggles the RmlUI menu (or navigates back if on sub-screen)
+	if (key == EInputKey::IK_Escape)
+	{
+		if (rmlui && rmlui->IsInitialized())
+		{
+			if (rmlui->IsDocumentVisible("menu") && rmlui->IsMenuOnSubScreen())
+			{
+				// Navigate back to main menu screen instead of closing
+				rmlui->HandleMenuAction("back");
+			}
+			else
+			{
+				rmlui->ToggleDocument("menu");
+				uiSuppression.bRmlMenus = rmlui->IsDocumentVisible("menu");
+				SetPause(uiSuppression.bRmlMenus);
+			}
+		}
 		return;
 	}
 

@@ -98,6 +98,33 @@ struct ConsoleViewModel
 	bool visible = false;
 };
 
+struct SaveSlotEntry
+{
+	int index = 0;
+	std::string description;
+	bool hasData = false;
+
+	bool operator==(const SaveSlotEntry& o) const
+	{
+		return index == o.index && description == o.description && hasData == o.hasData;
+	}
+	bool operator!=(const SaveSlotEntry& o) const { return !(*this == o); }
+};
+
+struct MenuViewModel
+{
+	bool visible = false;
+	bool showMain = true;
+	bool showOptions = false;
+	bool showSave = false;
+	bool showLoad = false;
+	bool showQuit = false;
+	int musicVolume = 128;    // 0-255 (UE1 range)
+	int soundVolume = 128;    // 0-255
+	int brightness = 5;       // 1-10
+	std::vector<SaveSlotEntry> saveSlots;
+};
+
 class RmlUIManager
 {
 public:
@@ -141,6 +168,9 @@ public:
 	void UpdateMessagesData(const MessagesViewModel& data);
 	void UpdateScoreboardData(const ScoreboardViewModel& data);
 	void UpdateConsoleData(const ConsoleViewModel& data);
+	void UpdateMenuData(const MenuViewModel& data);
+	void HandleMenuAction(const std::string& action);
+	bool IsMenuOnSubScreen() const;
 
 private:
 	Rml::ElementDocument* GetDocument(const std::string& name) const;
@@ -174,4 +204,10 @@ private:
 
 	ConsoleViewModel consoleViewModel;
 	Rml::DataModelHandle consoleModelHandle;
+
+	MenuViewModel menuViewModel;
+	Rml::DataModelHandle menuModelHandle;
+
+	void SetMenuScreen(const std::string& screen);
+	void PopulateSaveSlots();
 };

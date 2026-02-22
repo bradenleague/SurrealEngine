@@ -6,6 +6,7 @@
 #include "RmlUI/RmlUIRenderInterface.h"
 #include "Utils/Logger.h"
 #include "Engine.h"
+#include "Package/PackageManager.h"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Input.h>
 #include <filesystem>
@@ -139,6 +140,7 @@ void RmlUIManager::Shutdown()
 	messagesModelHandle = {};
 	scoreboardModelHandle = {};
 	consoleModelHandle = {};
+	menuModelHandle = {};
 	hudDocument = nullptr;
 	messagesDocument = nullptr;
 	scoreboardDocument = nullptr;
@@ -592,6 +594,44 @@ void RmlUIManager::SetupDataModel()
 	consoleModelHandle = conConstructor.GetModelHandle();
 
 	::LogMessage("RmlUi: Console data model created");
+
+	// --- Menu data model ---
+	Rml::DataModelConstructor menuConstructor = context->CreateDataModel("menu");
+	if (!menuConstructor)
+	{
+		::LogMessage("RmlUi WARNING: Failed to create menu data model");
+		return;
+	}
+
+	if (auto slot_handle = menuConstructor.RegisterStruct<SaveSlotEntry>())
+	{
+		slot_handle.RegisterMember("index", &SaveSlotEntry::index);
+		slot_handle.RegisterMember("description", &SaveSlotEntry::description);
+		slot_handle.RegisterMember("has_data", &SaveSlotEntry::hasData);
+	}
+	menuConstructor.RegisterArray<std::vector<SaveSlotEntry>>();
+
+	menuConstructor.Bind("visible", &menuViewModel.visible);
+	menuConstructor.Bind("show_main", &menuViewModel.showMain);
+	menuConstructor.Bind("show_options", &menuViewModel.showOptions);
+	menuConstructor.Bind("show_save", &menuViewModel.showSave);
+	menuConstructor.Bind("show_load", &menuViewModel.showLoad);
+	menuConstructor.Bind("show_quit", &menuViewModel.showQuit);
+	menuConstructor.Bind("music_volume", &menuViewModel.musicVolume);
+	menuConstructor.Bind("sound_volume", &menuViewModel.soundVolume);
+	menuConstructor.Bind("brightness", &menuViewModel.brightness);
+	menuConstructor.Bind("save_slots", &menuViewModel.saveSlots);
+
+	menuConstructor.BindEventCallback("menu_action",
+		[this](Rml::DataModelHandle handle, Rml::Event& event, const Rml::VariantList& arguments)
+		{
+			if (!arguments.empty())
+				HandleMenuAction(arguments[0].Get<Rml::String>());
+		});
+
+	menuModelHandle = menuConstructor.GetModelHandle();
+
+	::LogMessage("RmlUi: Menu data model created");
 }
 
 void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
@@ -747,4 +787,202 @@ void RmlUIManager::UpdateConsoleData(const ConsoleViewModel& data)
 		else
 			HideDocument("console");
 	}
+}
+
+bool RmlUIManager::IsMenuOnSubScreen() const
+{
+	return menuViewModel.showOptions || menuViewModel.showSave
+		|| menuViewModel.showLoad || menuViewModel.showQuit;
+}
+
+void RmlUIManager::UpdateMenuData(const MenuViewModel& data)
+{
+	if (!initialized || !menuModelHandle)
+		return;
+
+	if (menuViewModel.saveSlots != data.saveSlots)
+	{
+		menuViewModel.saveSlots = data.saveSlots;
+		menuModelHandle.DirtyVariable("save_slots");
+	}
+	if (menuViewModel.musicVolume != data.musicVolume)
+	{
+		menuViewModel.musicVolume = data.musicVolume;
+		menuModelHandle.DirtyVariable("music_volume");
+	}
+	if (menuViewModel.soundVolume != data.soundVolume)
+	{
+		menuViewModel.soundVolume = data.soundVolume;
+		menuModelHandle.DirtyVariable("sound_volume");
+	}
+	if (menuViewModel.brightness != data.brightness)
+	{
+		menuViewModel.brightness = data.brightness;
+		menuModelHandle.DirtyVariable("brightness");
+	}
+}
+
+void RmlUIManager::HandleMenuAction(const std::string& action)
+{
+	if (!initialized || !menuModelHandle)
+		return;
+
+	if (action == "resume")
+	{
+		HideDocument("menu");
+		menuViewModel.visible = false;
+		menuModelHandle.DirtyVariable("visible");
+		if (engine)
+		{
+			engine->uiSuppression.bRmlMenus = false;
+			engine->SetPause(false);
+		}
+		SetMenuScreen("main");
+	}
+	else if (action == "options")
+	{
+		SetMenuScreen("options");
+	}
+	else if (action == "save")
+	{
+		PopulateSaveSlots();
+		SetMenuScreen("save");
+	}
+	else if (action == "load")
+	{
+		PopulateSaveSlots();
+		SetMenuScreen("load");
+	}
+	else if (action == "quit")
+	{
+		SetMenuScreen("quit");
+	}
+	else if (action == "quit_yes")
+	{
+		if (engine)
+			engine->quit = true;
+	}
+	else if (action == "back")
+	{
+		SetMenuScreen("main");
+	}
+	else if (action == "music_up")
+	{
+		menuViewModel.musicVolume = std::min(255, menuViewModel.musicVolume + 16);
+		menuModelHandle.DirtyVariable("music_volume");
+	}
+	else if (action == "music_down")
+	{
+		menuViewModel.musicVolume = std::max(0, menuViewModel.musicVolume - 16);
+		menuModelHandle.DirtyVariable("music_volume");
+	}
+	else if (action == "sound_up")
+	{
+		menuViewModel.soundVolume = std::min(255, menuViewModel.soundVolume + 16);
+		menuModelHandle.DirtyVariable("sound_volume");
+	}
+	else if (action == "sound_down")
+	{
+		menuViewModel.soundVolume = std::max(0, menuViewModel.soundVolume - 16);
+		menuModelHandle.DirtyVariable("sound_volume");
+	}
+	else if (action == "bright_up")
+	{
+		menuViewModel.brightness = std::min(10, menuViewModel.brightness + 1);
+		menuModelHandle.DirtyVariable("brightness");
+	}
+	else if (action == "bright_down")
+	{
+		menuViewModel.brightness = std::max(1, menuViewModel.brightness - 1);
+		menuModelHandle.DirtyVariable("brightness");
+	}
+	else if (action.substr(0, 5) == "save_")
+	{
+		int slot = std::stoi(action.substr(5));
+		if (engine)
+		{
+			engine->SaveGameInfo.SaveGameSlot = slot;
+			engine->SaveGameInfo.SaveGameDescription = "Save " + std::to_string(slot);
+		}
+		// Return to main menu after save
+		SetMenuScreen("main");
+	}
+	else if (action.substr(0, 5) == "load_")
+	{
+		int slot = std::stoi(action.substr(5));
+		if (engine)
+		{
+			// Build a travel URL with load option
+			std::string mapName = engine->LevelInfo ? engine->LevelInfo->URL.Map : "";
+			if (!mapName.empty())
+			{
+				engine->ClientTravel(mapName + "?load=" + std::to_string(slot),
+					ETravelType::TRAVEL_Absolute, false);
+			}
+		}
+		// Close menu
+		HandleMenuAction("resume");
+	}
+}
+
+void RmlUIManager::SetMenuScreen(const std::string& screen)
+{
+	if (!menuModelHandle)
+		return;
+
+	bool wasMain = menuViewModel.showMain;
+	bool wasOptions = menuViewModel.showOptions;
+	bool wasSave = menuViewModel.showSave;
+	bool wasLoad = menuViewModel.showLoad;
+	bool wasQuit = menuViewModel.showQuit;
+
+	menuViewModel.showMain = (screen == "main");
+	menuViewModel.showOptions = (screen == "options");
+	menuViewModel.showSave = (screen == "save");
+	menuViewModel.showLoad = (screen == "load");
+	menuViewModel.showQuit = (screen == "quit");
+
+	if (menuViewModel.showMain != wasMain)
+		menuModelHandle.DirtyVariable("show_main");
+	if (menuViewModel.showOptions != wasOptions)
+		menuModelHandle.DirtyVariable("show_options");
+	if (menuViewModel.showSave != wasSave)
+		menuModelHandle.DirtyVariable("show_save");
+	if (menuViewModel.showLoad != wasLoad)
+		menuModelHandle.DirtyVariable("show_load");
+	if (menuViewModel.showQuit != wasQuit)
+		menuModelHandle.DirtyVariable("show_quit");
+}
+
+void RmlUIManager::PopulateSaveSlots()
+{
+	menuViewModel.saveSlots.clear();
+
+	std::string gameRoot;
+	std::string saveExt;
+	if (engine)
+	{
+		gameRoot = engine->LaunchInfo.gameRootFolder;
+		saveExt = engine->packages ? engine->packages->GetSaveExtension() : "usa";
+	}
+
+	for (int i = 0; i < 10; i++)
+	{
+		SaveSlotEntry slot;
+		slot.index = i;
+		slot.description = "Slot " + std::to_string(i);
+
+		if (!gameRoot.empty())
+		{
+			auto slotPath = std::filesystem::path(gameRoot) / "Save" /
+				("Save" + std::to_string(i) + "." + saveExt);
+			slot.hasData = std::filesystem::exists(slotPath);
+			if (slot.hasData)
+				slot.description = "Save " + std::to_string(i);
+		}
+
+		menuViewModel.saveSlots.push_back(slot);
+	}
+
+	menuModelHandle.DirtyVariable("save_slots");
 }

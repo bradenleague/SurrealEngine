@@ -187,8 +187,6 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 7:** Console replacement — tilde-key panel, log mirror, UScript state passthrough
 
 ## Remaining Roadmap
-- **Phase 6:** Scoreboard replacement
-- **Phase 7:** Console replacement
 - **Phase 8:** Menu replacement
 - **Phase 9:** UWindow retirement
 - CSS transform support (`SetTransform`)
