@@ -95,7 +95,10 @@ void Engine::Run()
 
 	// Set suppression flags based on which documents loaded
 	if (rmlui->IsInitialized())
+	{
 		uiSuppression.bRmlHUD = rmlui->IsDocumentVisible("hud");
+		uiSuppression.bRmlMessages = rmlui->IsDocumentVisible("messages");
+	}
 
 	if (engine->LaunchInfo.engineVersion > 219 && !client->StartupFullscreen)
 		viewport->bWindowsMouseAvailable() = true;
@@ -222,6 +225,54 @@ void Engine::Run()
 				// Some properties may not exist in older game versions — silently use defaults
 			}
 			rmlui->UpdateHUDData(hud);
+
+			// Extract message data from console ring buffer
+			MessagesViewModel msgs;
+			try
+			{
+				if (console)
+				{
+					int topLine = console->TopLine();
+					int textLines = console->TextLines();
+					int maxVisible = std::min(textLines, 4);
+
+					std::string* msgTextBase = &console->MsgText();
+					float* msgTickBase = &console->MsgTick();
+					NameString* msgTypeBase = &console->MsgType();
+
+					for (int i = 0; i < maxVisible; i++)
+					{
+						int idx = (topLine - i + 64) % 64;
+						float tick = msgTickBase[idx];
+						if (tick <= 0.0f)
+							continue;
+
+						MessageEntry entry;
+						entry.text = msgTextBase[idx];
+						entry.type = msgTypeBase[idx].ToString();
+						entry.timeRemaining = tick;
+
+						// Map type to CSS color
+						if (entry.type == "Say" || entry.type == "TeamSay")
+							entry.color = "#44dd66";
+						else if (entry.type == "CriticalEvent")
+							entry.color = "#4488ff";
+						else
+							entry.color = "#dddddd";
+
+						msgs.messages.push_back(entry);
+					}
+
+					msgs.isTyping = console->bTyping();
+					if (msgs.isTyping)
+						msgs.typedString = console->TypedStr();
+				}
+			}
+			catch (const std::exception&)
+			{
+				// Console properties may not exist in all game versions
+			}
+			rmlui->UpdateMessagesData(msgs);
 		}
 
 		if (rmlui) rmlui->Update();
@@ -1371,6 +1422,7 @@ std::string Engine::ConsoleCommand(UObject* context, const std::string& commandl
 				w, h);
 			// Restore suppression state based on which documents loaded
 			uiSuppression.bRmlHUD = rmlui->IsDocumentVisible("hud");
+			uiSuppression.bRmlMessages = rmlui->IsDocumentVisible("messages");
 			LogMessage("RmlUI reloaded");
 		}
 		return {};

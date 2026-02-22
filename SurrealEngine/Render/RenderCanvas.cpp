@@ -90,8 +90,10 @@ void RenderSubsystem::PostRender()
 	if (engine->viewport->Actor() && !engine->uiSuppression.bRmlHUD)
 		CallEvent(engine->viewport->Actor(), EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 
-	// Gate console PostRender (messages/console drawing) on RmlUI suppression
-	if (!engine->uiSuppression.bRmlMessages && !engine->uiSuppression.bRmlConsole)
+	// Gate console PostRender on RmlUI suppression.
+	// Console PostRender handles both DrawSingleView (messages) and DrawConsoleView (console).
+	// Only suppress when BOTH are replaced, so partial replacement doesn't break the other.
+	if (!(engine->uiSuppression.bRmlMessages && engine->uiSuppression.bRmlConsole))
 		CallEvent(engine->console, EventName::PostRender, { ExpressionValue::ObjectValue(engine->canvas) });
 
 	DrawTimedemoStats();

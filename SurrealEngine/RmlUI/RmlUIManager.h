@@ -45,6 +45,27 @@ struct HUDViewModel
 	std::vector<WeaponSlot> weaponSlots;
 };
 
+struct MessageEntry
+{
+	std::string text;
+	std::string type;   // "Say", "TeamSay", "Console", "CriticalEvent", etc.
+	std::string color;  // CSS color string for data-style-color
+	float timeRemaining = 0.0f;
+
+	bool operator==(const MessageEntry& o) const
+	{
+		return text == o.text && type == o.type && color == o.color && timeRemaining == o.timeRemaining;
+	}
+	bool operator!=(const MessageEntry& o) const { return !(*this == o); }
+};
+
+struct MessagesViewModel
+{
+	std::vector<MessageEntry> messages;  // up to 4 visible
+	bool isTyping = false;
+	std::string typedString;
+};
+
 class RmlUIManager
 {
 public:
@@ -85,6 +106,7 @@ public:
 	// Data model
 	void SetupDataModel();
 	void UpdateHUDData(const HUDViewModel& data);
+	void UpdateMessagesData(const MessagesViewModel& data);
 
 private:
 	Rml::ElementDocument* GetDocument(const std::string& name) const;
@@ -109,4 +131,7 @@ private:
 	// Data model
 	HUDViewModel hudViewModel;
 	Rml::DataModelHandle hudModelHandle;
+
+	MessagesViewModel messagesViewModel;
+	Rml::DataModelHandle messagesModelHandle;
 };

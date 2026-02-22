@@ -556,6 +556,92 @@ static void TestUpdateHUDDataDefaults()
 	std::cout << "OK\n";
 }
 
+// ---- Messages Data Model Tests ----
+
+static void TestUpdateMessagesData()
+{
+	std::cout << "  DataModel: UpdateMessagesData with messages... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	MessagesViewModel msgs;
+	MessageEntry e1;
+	e1.text = "Player1: Hello!";
+	e1.type = "Say";
+	e1.color = "#44dd66";
+	e1.timeRemaining = 5.0f;
+	msgs.messages.push_back(e1);
+
+	MessageEntry e2;
+	e2.text = "Player2 was killed by Player1";
+	e2.type = "CriticalEvent";
+	e2.color = "#4488ff";
+	e2.timeRemaining = 3.0f;
+	msgs.messages.push_back(e2);
+
+	mgr.UpdateMessagesData(msgs);
+
+	// Message expires
+	msgs.messages.erase(msgs.messages.begin() + 1);
+	mgr.UpdateMessagesData(msgs);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateMessagesDataTyping()
+{
+	std::cout << "  DataModel: UpdateMessagesData typing indicator... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	MessagesViewModel msgs;
+	msgs.isTyping = true;
+	msgs.typedString = "hello world";
+	mgr.UpdateMessagesData(msgs);
+
+	// Stop typing
+	msgs.isTyping = false;
+	msgs.typedString = "";
+	mgr.UpdateMessagesData(msgs);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
+static void TestUpdateMessagesDataEmpty()
+{
+	std::cout << "  DataModel: UpdateMessagesData empty... ";
+	RmlUIManager mgr;
+	bool ok = mgr.Initialize(testDir, 800, 600);
+	if (!ok)
+	{
+		std::cout << "SKIP (init failed)\n";
+		return;
+	}
+
+	// Empty messages — should not crash
+	MessagesViewModel msgs;
+	mgr.UpdateMessagesData(msgs);
+	mgr.UpdateMessagesData(msgs);
+
+	mgr.Update();
+	mgr.Shutdown();
+	std::cout << "OK\n";
+}
+
 int main()
 {
 	std::cout << "RmlUI Tests\n";
@@ -596,12 +682,17 @@ int main()
 	TestDocumentManagementInvalidName();
 	TestHasActiveInteractiveDocument();
 
-	std::cout << "\nData Model:\n";
+	std::cout << "\nHUD Data Model:\n";
 	TestUpdateHUDDataNoChange();
 	TestUpdateHUDDataWeaponSlots();
 	TestUpdateHUDDataExpandedFields();
 	TestUpdateHUDDataChange();
 	TestUpdateHUDDataDefaults();
+
+	std::cout << "\nMessages Data Model:\n";
+	TestUpdateMessagesData();
+	TestUpdateMessagesDataTyping();
+	TestUpdateMessagesDataEmpty();
 
 	CleanupTestDir();
 

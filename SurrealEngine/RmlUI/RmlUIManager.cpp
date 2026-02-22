@@ -100,7 +100,7 @@ bool RmlUIManager::Initialize(const std::string& uiRootPath, int width, int heig
 	// Load named documents
 	struct { const char* filename; Rml::ElementDocument** target; bool showOnLoad; } docs[] = {
 		{ "hud.rml",        &hudDocument,        true  },
-		{ "messages.rml",   &messagesDocument,   false },
+		{ "messages.rml",   &messagesDocument,   true  },
 		{ "scoreboard.rml", &scoreboardDocument, false },
 		{ "console.rml",    &consoleDocument,    false },
 		{ "menu.rml",       &menuDocument,       false },
@@ -136,6 +136,7 @@ void RmlUIManager::Shutdown()
 		return;
 
 	hudModelHandle = {};
+	messagesModelHandle = {};
 	hudDocument = nullptr;
 	messagesDocument = nullptr;
 	scoreboardDocument = nullptr;
@@ -518,6 +519,31 @@ void RmlUIManager::SetupDataModel()
 	hudModelHandle = constructor.GetModelHandle();
 
 	::LogMessage("RmlUi: HUD data model created");
+
+	// --- Messages data model ---
+	Rml::DataModelConstructor msgConstructor = context->CreateDataModel("messages");
+	if (!msgConstructor)
+	{
+		::LogMessage("RmlUi WARNING: Failed to create messages data model");
+		return;
+	}
+
+	if (auto msg_handle = msgConstructor.RegisterStruct<MessageEntry>())
+	{
+		msg_handle.RegisterMember("text", &MessageEntry::text);
+		msg_handle.RegisterMember("type", &MessageEntry::type);
+		msg_handle.RegisterMember("color", &MessageEntry::color);
+		msg_handle.RegisterMember("time_remaining", &MessageEntry::timeRemaining);
+	}
+	msgConstructor.RegisterArray<std::vector<MessageEntry>>();
+
+	msgConstructor.Bind("messages", &messagesViewModel.messages);
+	msgConstructor.Bind("is_typing", &messagesViewModel.isTyping);
+	msgConstructor.Bind("typed_string", &messagesViewModel.typedString);
+
+	messagesModelHandle = msgConstructor.GetModelHandle();
+
+	::LogMessage("RmlUi: Messages data model created");
 }
 
 void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
@@ -589,5 +615,27 @@ void RmlUIManager::UpdateHUDData(const HUDViewModel& data)
 	{
 		hudViewModel.weaponSlots = data.weaponSlots;
 		hudModelHandle.DirtyVariable("weapon_slots");
+	}
+}
+
+void RmlUIManager::UpdateMessagesData(const MessagesViewModel& data)
+{
+	if (!initialized || !messagesModelHandle)
+		return;
+
+	if (messagesViewModel.messages != data.messages)
+	{
+		messagesViewModel.messages = data.messages;
+		messagesModelHandle.DirtyVariable("messages");
+	}
+	if (messagesViewModel.isTyping != data.isTyping)
+	{
+		messagesViewModel.isTyping = data.isTyping;
+		messagesModelHandle.DirtyVariable("is_typing");
+	}
+	if (messagesViewModel.typedString != data.typedString)
+	{
+		messagesViewModel.typedString = data.typedString;
+		messagesModelHandle.DirtyVariable("typed_string");
 	}
 }
