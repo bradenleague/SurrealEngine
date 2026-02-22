@@ -15,7 +15,7 @@ RmlUIRenderInterface   ← texture/geometry management, calls DrawUITriangles()
 
 1. **Init:** Created in `Engine::Run()` after `RenderSubsystem`. Checks if `{gameRootFolder}/UI/` exists; if absent, skips silently (zero overhead). Sets up HUD data model before loading documents.
 2. **Update:** Called each frame in the main loop after `UpdateInput()` and HUD data extraction.
-3. **Render:** Called in `RenderSubsystem::DrawGame()` after `DrawRootWindow()`, before `PostRender()`.
+3. **Render:** Called in `RenderSubsystem::DrawGame()` after `PostRender()`, before `Device->Unlock()`. This ensures RmlUI draws on top of all script UI.
 4. **Shutdown:** Called in `Engine::~Engine()` before `engine = nullptr`.
 
 ## Engine.h Member Ordering
@@ -25,10 +25,10 @@ RmlUIRenderInterface   ← texture/geometry management, calls DrawUITriangles()
 ## Render Pipeline Position
 
 ```
-DrawScene() → RenderOverlays() → EndFlash() → DrawRootWindow() → [RmlUI Render] → PostRender()
+DrawScene() → RenderOverlays() → EndFlash() → DrawRootWindow() → PostRender() → [RmlUI Render]
 ```
 
-RmlUI renders after the UWindow tree but before PostRender, so it overlays on top of the legacy UI.
+RmlUI renders after PostRender, so it always draws on top of all script-rendered UI and UWindow.
 
 ## RenderDevice Integration
 
@@ -42,13 +42,36 @@ RmlUI renders after the UWindow tree but before PostRender, so it overlays on to
 
 ```
 {gameRootFolder}/UI/          ← engine checks for this directory
-├── index.rml                 ← entry document, auto-loaded on init
+├── hud.rml                   ← HUD overlay (auto-shown on init)
+├── messages.rml              ← toast messages (hidden by default)
+├── scoreboard.rml            ← scoreboard panel (hidden by default)
+├── console.rml               ← sliding console (hidden by default)
+├── menu.rml                  ← game menu (hidden by default)
 ├── fonts/                    ← .ttf/.otf files, auto-loaded on init
 │   └── YourFont.ttf
-├── styles/                   ← optional, for shared RCSS stylesheets
+├── styles/                   ← shared RCSS stylesheets
 │   └── base.rcss             ← recommended base stylesheet (see below)
 └── images/                   ← optional, for <img> tags and backgrounds
 ```
+
+Each document is optional — only present files are loaded. The HUD document is shown immediately; all others start hidden and are shown/hidden via `ShowDocument()`/`HideDocument()`/`ToggleDocument()`.
+
+## UI Suppression
+
+`UISuppressionFlags` in `Engine.h` controls per-surface suppression of script-rendered UI:
+- `bRmlHUD` — when true, skips `actor->PostRender()` (HUD/scoreboard drawing)
+- `bRmlMessages` — when true, skips `console->PostRender()` toast messages
+- `bRmlScoreboard` — reserved for scoreboard document
+- `bRmlConsole` — when true, skips `console->PostRender()` console drawing
+- `bRmlMenus` — reserved for menu document
+
+Flags are automatically set when documents load. The `togglehud` console command toggles the HUD flag.
+
+## Console Commands
+
+- `togglehud` — show/hide the RmlUI HUD (re-enables script HUD when hidden)
+- `togglemenu` — show/hide the RmlUI menu
+- `reloadui` — shutdown and reinitialize RmlUI (reloads all documents)
 
 ## Base Stylesheet Template
 
@@ -68,7 +91,7 @@ img { display: inline-block; }
 
 Input flows from `Engine::OnWindow*` handlers → `RmlUIManager::Process*` → `Rml::Context::Process*`.
 
-**Gating:** `Engine::ShouldRouteInputToUI()` returns true when `rmlui` is initialized AND `viewport->bShowWindowsMouse()` is true (cursor visible = menu mode). During gameplay, the cursor is locked via SDL relative mode, so `OnWindowMouseMove` doesn't fire — only `OnWindowRawMouseMove` (deltas). Combined with the `bShowWindowsMouse` gate, RmlUI is fully silent during gameplay.
+**Gating:** `Engine::ShouldRouteInputToUI()` returns true when `rmlui` is initialized AND either `viewport->bShowWindowsMouse()` is true OR `HasActiveInteractiveDocument()` is true (menu/console/scoreboard visible). The cursor is automatically unlocked when an interactive document is active.
 
 **Mouse position:** Always forwarded (no gate) for hover tracking. Click/wheel/key events are gated.
 
@@ -112,11 +135,17 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 2B.2:** `LoadTexture` via stb_image (PNG, JPG, BMP, GIF, TGA, PSD)
 - **Phase 2C:** Base stylesheet template
 - **Phase 2D:** HUD data model bridge (health, armor, ammo, weapon, player info)
+- **Phase 3:** Infrastructure — multi-document, suppression flags, console commands, render reorder
 
 ## Remaining Roadmap
 
+- **Phase 4:** Full HUD replacement (weapon inventory, crosshair, identify, progress messages)
+- **Phase 5:** Messages replacement (toast messages, typing indicator)
+- **Phase 6:** Scoreboard replacement
+- **Phase 7:** Console replacement
+- **Phase 8:** Menu replacement
+- **Phase 9:** UWindow retirement
 - CSS transform support (`SetTransform`)
 - RmlUi Debugger toggle
 - Hot-reload (file watcher)
 - D3D11 backend `DrawUITriangles` implementation
-- Extended data models (scoreboard, inventory list, etc.)

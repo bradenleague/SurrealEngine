@@ -161,15 +161,32 @@ Primary targets (relatively playable): UT99 v436, Unreal Gold v226. Many other U
 
 ## UI Content
 
-The RmlUI HUD is developed in the game's `UI/` folder. Our active content directory:
+The RmlUI system is developed in the game's `UI/` folder. Our active content directory:
 
 ```
 ~/dev/games/UnrealGold/UI/
-├── index.rml              ← entry document, auto-loaded
+├── hud.rml                ← HUD overlay (auto-shown on init)
+├── messages.rml           ← toast messages (stub, hidden by default)
+├── scoreboard.rml         ← scoreboard panel (stub, hidden by default)
+├── console.rml            ← sliding console (stub, hidden by default)
+├── menu.rml               ← game menu (stub, hidden by default)
 ├── fonts/                 ← LatoLatin, SpaceGrotesk, SpaceMono, DejaVuSans, OpenSans
 └── styles/
     ├── base.rcss          ← reset/block-display defaults
-    └── hud.rcss           ← HUD layout and styling
+    ├── hud.rcss           ← HUD layout and styling
+    ├── messages.rcss      ← message toast styling (stub)
+    ├── scoreboard.rcss    ← scoreboard panel styling (stub)
+    ├── console.rcss       ← console panel styling (stub)
+    └── menu.rcss          ← menu overlay styling (stub)
 ```
 
-This content is loaded at runtime when the engine detects the `UI/` directory. Changes to `.rml`/`.rcss` files take effect on next launch (no hot-reload yet). Use `/surreal-ui` when editing these files.
+Each document is optional — only present files are loaded. Changes take effect on next launch (or via `reloadui` console command). Use `/surreal-ui` when editing these files.
+
+## UI Replacement Plan
+
+We are replacing all UE1 script-rendered UI (HUD, messages, scoreboard, console, menus) with RmlUI. Phase 3 (infrastructure) is complete. See `Docs/RmlUI-Replacement-Plan.md` for the full plan, phase status, and dependency graph.
+
+Console commands for development:
+- `togglehud` — toggle RmlUI HUD (script HUD reappears when disabled)
+- `togglemenu` — toggle RmlUI menu
+- `reloadui` — reinitialize all RmlUI documents from disk

@@ -11,9 +11,11 @@ RenderSubsystem::DrawGame(float levelTimeElapsed)
   ├─ DrawScene()             — 3D BSP world + actors
   ├─ RenderOverlays()        — CallEvent(actor, RenderOverlays, {Canvas})
   ├─ DrawRootWindow()        — UWindow tree (if dxRootWindow exists)
-  ├─ RmlUI Render            — RmlUi overlay (if initialized, via DrawUITriangles)
-  └─ PostRender()            — CallEvent(actor/console, PostRender, {Canvas})
+  ├─ PostRender()            — CallEvent(actor/console, PostRender, {Canvas}) [gated by UISuppressionFlags]
+  └─ RmlUI Render            — RmlUi overlay (if initialized, via DrawUITriangles)
 ```
+
+PostRender is gated by `UISuppressionFlags`: when `bRmlHUD` is true, actor PostRender is skipped; when `bRmlMessages`/`bRmlConsole` are true, console PostRender is skipped.
 
 Final output is presented to the swapchain, but backends use offscreen intermediate targets (for example post-processing/bloom paths).
 
