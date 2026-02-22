@@ -11,7 +11,7 @@ Tracking document for the multi-phase replacement of all UE1 script-rendered UI 
 | 5 | Messages | **Done** | Toast messages, typing indicator, data-style-color |
 | 6 | Scoreboard | **Done** | Tab-key panel, player iteration, score sorting |
 | 7 | Console | **Done** | Tilde-key panel, log mirror, UScript state passthrough |
-| 8 | Menus | Pending | Escape-key game menu (largest phase) |
+| 8 | Menus | **Done** | Escape-key overlay, data-event-click callbacks, save/load/options |
 | 9 | UWindow Retirement | Pending | Final cleanup after all surfaces replaced |
 
 ## Dependency Graph

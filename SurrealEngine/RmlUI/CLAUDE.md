@@ -168,6 +168,28 @@ The `HUDViewModel` struct provides a UObject-free data transfer layer between `E
 
 Console PostRender handles both `DrawSingleView` (toast messages) and `DrawConsoleView` (console panel). The suppression gate uses AND: both `bRmlMessages` AND `bRmlConsole` must be true to suppress. This allows partial replacement (Phase 5 messages without Phase 7 console) without breaking the console view.
 
+### Menu Data Model (data-model="menu")
+
+The menu is **event-driven**, not state-mirrored like other data models. Screen navigation and settings changes are handled via `data-event-click="menu_action('action')"` callbacks dispatched to `RmlUIManager::HandleMenuAction()`.
+
+**Screen booleans** (only one true at a time):
+- `{{ show_main }}`, `{{ show_options }}`, `{{ show_save }}`, `{{ show_load }}`, `{{ show_quit }}`
+
+**Settings** (adjusted via increment/decrement actions):
+- `{{ music_volume }}` — int, 0-255
+- `{{ sound_volume }}` — int, 0-255
+- `{{ brightness }}` — int, 1-10
+
+**Save slots** (populated when entering save/load screen):
+- `{{ save_slots }}` — array of SaveSlotEntry structs
+- `slot.index` — int, slot number 0-9
+- `slot.description` — string, slot label
+- `slot.has_data` — bool, whether save file exists
+
+**Supported actions:** `resume`, `options`, `save`, `load`, `quit`, `quit_yes`, `back`, `music_up`, `music_down`, `sound_up`, `sound_down`, `bright_up`, `bright_down`, `save_N`, `load_N`
+
+**Escape key behavior:** If menu is on a sub-screen, Escape navigates back to main. If on main screen, Escape closes the menu. Game is paused while menu is open.
+
 ## Skills
 
 When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI drawing code, use the `/surreal-ui` skill. It documents critical RCSS differences from CSS (no user-agent stylesheet, no `border: solid`, no `position: fixed`, etc.) and current SurrealEngine integration status.
@@ -185,9 +207,9 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 5:** Messages replacement — toast messages, typing indicator, data-style-color, AND suppression logic
 - **Phase 6:** Scoreboard replacement — Tab-key panel, PlayerReplicationInfo iteration, score sorting
 - **Phase 7:** Console replacement — tilde-key panel, log mirror, UScript state passthrough
+- **Phase 8:** Menu replacement — Escape-key overlay, data-event-click callbacks, save/load/options
 
 ## Remaining Roadmap
-- **Phase 8:** Menu replacement
 - **Phase 9:** UWindow retirement
 - CSS transform support (`SetTransform`)
 - RmlUi Debugger toggle
