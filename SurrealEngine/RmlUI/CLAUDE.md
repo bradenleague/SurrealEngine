@@ -208,9 +208,9 @@ When editing `.rml`/`.rcss` files, RmlUI C++ interfaces, or RenderDevice UI draw
 - **Phase 6:** Scoreboard replacement — Tab-key panel, PlayerReplicationInfo iteration, score sorting
 - **Phase 7:** Console replacement — tilde-key panel, log mirror, UScript state passthrough
 - **Phase 8:** Menu replacement — Escape-key overlay, data-event-click callbacks, save/load/options
+- **Phase 9:** UWindow retirement — DrawRootWindow skipped, bShowWindowsMouse retired
 
 ## Remaining Roadmap
-- **Phase 9:** UWindow retirement
 - CSS transform support (`SetTransform`)
 - RmlUi Debugger toggle
 - Hot-reload (file watcher)
